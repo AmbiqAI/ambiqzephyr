@@ -264,6 +264,15 @@
 			};
 		};
 
+		usb: usb@400B0000 {
+			compatible = "ambiq,usb";
+			reg = <0x400B0000 0x4100>;
+			interrupts = <27 0>;
+			num-bidir-endpoints = <6>;
+			status = "disabled";
+			ambiq,pwrcfg = <&pwrcfg 0x4 0x400000>;
+		};
+
 		wdt0: watchdog@40024000 {
 			compatible = "ambiq,watchdog";
 			reg = <0x40024000 0x400>;
@@ -271,6 +280,10 @@
 			clock-frequency = <16>;
 			status = "disabled";
 		};
+	};
+	usb_phy: usb_phy {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
 	};
 };
 
