@@ -13,6 +13,23 @@ static void pinctrl_configure_pin(const pinctrl_soc_pin_t *pin)
 {
 	am_hal_gpio_pincfg_t pin_config = {0};
 
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+	pin_config.uFuncSel = pin->alt_func;
+	pin_config.eGPInput = pin->input_enable ? AM_HAL_GPIO_PIN_INPUT_ENABLE
+							 : AM_HAL_GPIO_PIN_INPUT_NONE;
+	pin_config.eGPOutcfg = pin->push_pull    ? AM_HAL_GPIO_PIN_OUTCFG_PUSHPULL
+					: pin->open_drain ? AM_HAL_GPIO_PIN_OUTCFG_OPENDRAIN
+					: pin->tristate   ? AM_HAL_GPIO_PIN_OUTCFG_TRISTATE
+							  : AM_HAL_GPIO_PIN_OUTCFG_DISABLE;
+	pin_config.eDriveStrength = pin->drive_strength;
+	pin_config.uNCE = pin->iom_nce;
+
+	if (pin->bias_pull_up) {
+		pin_config.ePullup = pin->ambiq_pull_up_ohms + AM_HAL_GPIO_PIN_PULLUP_1_5K;
+	} else if (pin->bias_pull_down) {
+		pin_config.ePullup = AM_HAL_GPIO_PIN_PULLDOWN;
+	}
+#else
 	pin_config.GP.cfg_b.uFuncSel = pin->alt_func;
 	pin_config.GP.cfg_b.eGPInput = pin->input_enable ? AM_HAL_GPIO_PIN_INPUT_ENABLE
 							 : AM_HAL_GPIO_PIN_INPUT_NONE;
@@ -29,7 +46,7 @@ static void pinctrl_configure_pin(const pinctrl_soc_pin_t *pin)
 	} else if (pin->bias_pull_down) {
 		pin_config.GP.cfg_b.ePullup = AM_HAL_GPIO_PIN_PULLDOWN_50K;
 	}
-
+#endif
 	am_hal_gpio_pinconfig(pin->pin_num, pin_config);
 }
 
