@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2023 Ambiq Micro Inc. <www.ambiq.com>
+
+config BOARD_APOLLO3P_EVB
+	bool "Ambiq Apollo3 Blue Plus Evaluation Board"
+	depends on SOC_APOLLO3P_BLUE
