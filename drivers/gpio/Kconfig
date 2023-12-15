@@ -236,6 +236,8 @@ source "drivers/gpio/Kconfig.ra"
 
 source "drivers/gpio/Kconfig.rzt2m"
 
-source "drivers/gpio/Kconfig.ambiq"
+source "drivers/gpio/Kconfig.apollo3"
+
+source "drivers/gpio/Kconfig.apollo4"
 
 endif # GPIO
