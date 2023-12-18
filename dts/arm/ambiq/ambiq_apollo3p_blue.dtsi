@@ -53,7 +53,7 @@
 		stimer0: stimer@40008140 {
 			compatible = "ambiq,stimer";
 			reg = <0x40008140 0x80>;
-			interrupts = <22 0>;
+			interrupts = <23 0>;
 			status = "okay";
 		};
 
