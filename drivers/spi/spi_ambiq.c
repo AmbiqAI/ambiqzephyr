@@ -37,7 +37,11 @@ struct spi_ambiq_data {
 };
 
 #define SPI_BASE      (((const struct spi_ambiq_config *)(dev)->config)->base)
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+#define REG_STAT      0x2B4
+#else
 #define REG_STAT      0x248
+#endif
 #define IDLE_STAT     0x4
 #define SPI_STAT(dev) (SPI_BASE + REG_STAT)
 #define SPI_WORD_SIZE 8
@@ -132,7 +136,11 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 	am_hal_iom_transfer_t trans = {0};
 
 	if (ctx->tx_len) {
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+		trans.ui32Instr = *ctx->tx_buf;
+#else
 		trans.ui64Instr = *ctx->tx_buf;
+#endif
 		trans.ui32InstrLen = 1;
 		spi_context_update_tx(ctx, 1, 1);
 
@@ -147,7 +155,11 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 				/* Put the remaining TX data in instruction. */
 				trans.ui32InstrLen += ctx->tx_len;
 				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+					trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
+#else
 					trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
+#endif
 					spi_context_update_tx(ctx, 1, 1);
 				}
 			}
@@ -168,7 +180,11 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		}
 	} else {
 		/* Set RX direction to receive data and release CS after transmission. */
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+		trans.ui32Instr = 0;
+#else
 		trans.ui64Instr = 0;
+#endif
 		trans.ui32InstrLen = 0;
 		trans.eDirection = AM_HAL_IOM_RX;
 		trans.bContinue = false;
