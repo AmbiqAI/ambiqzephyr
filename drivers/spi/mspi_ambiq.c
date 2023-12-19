@@ -17,7 +17,11 @@ LOG_MODULE_REGISTER(mspi_ambiq);
 #include <am_mcu_apollo.h>
 
 #define SPI_WORD_SIZE        8
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+#define MSPI_MAX_FREQ        48000000
+#else
 #define MSPI_MAX_FREQ        96000000
+#endif
 #define MSPI_TIMEOUT_US      1000000
 #define PWRCTRL_MAX_WAIT_US  5
 #define MSPI_BUSY            BIT(2)
@@ -43,9 +47,11 @@ static int mspi_set_freq(uint32_t freq)
 	uint32_t d = MSPI_MAX_FREQ / freq;
 
 	switch (d) {
+#if !defined(CONFIG_SOC_SERIES_APOLLO3X)
 	case AM_HAL_MSPI_CLK_96MHZ:
-	case AM_HAL_MSPI_CLK_48MHZ:
 	case AM_HAL_MSPI_CLK_32MHZ:
+#endif
+	case AM_HAL_MSPI_CLK_48MHZ:
 	case AM_HAL_MSPI_CLK_24MHZ:
 	case AM_HAL_MSPI_CLK_16MHZ:
 	case AM_HAL_MSPI_CLK_12MHZ:
@@ -56,7 +62,11 @@ static int mspi_set_freq(uint32_t freq)
 		break;
 	default:
 		LOG_ERR("Frequency not supported!");
+#if !defined(CONFIG_SOC_SERIES_APOLLO3X)
 		d = AM_HAL_MSPI_CLK_INVALID;
+#else
+		d = 0;
+#endif
 		break;
 	}
 
@@ -107,7 +117,11 @@ static int mspi_config(const struct device *dev, const struct spi_config *config
 	}
 
 	mspicfg.eClockFreq = mspi_set_freq(config->frequency);
-	if (mspicfg.eClockFreq == AM_HAL_MSPI_CLK_INVALID) {
+#if !defined(CONFIG_SOC_SERIES_APOLLO3X)
+if (mspicfg.eClockFreq == AM_HAL_MSPI_CLK_INVALID) {
+#else
+if (mspicfg.eClockFreq == 0) {
+#endif
 		return -ENOTSUP;
 	}
 
@@ -206,7 +220,11 @@ static int mspi_ambiq_init(const struct device *dev)
 {
 	struct mspi_ambiq_data *data = dev->data;
 	const struct mspi_ambiq_config *cfg = dev->config;
+#if !defined(CONFIG_SOC_SERIES_APOLLO3X)
 	am_hal_mspi_config_t mspiCfg = {0};
+#else
+	am_hal_mspi_dev_config_t mspiCfg = {0};
+#endif
 
 	mspiCfg.pTCB = NULL;
 
@@ -218,7 +236,11 @@ static int mspi_ambiq_init(const struct device *dev)
 
 	ret = cfg->pwr_func();
 
+#if !defined(CONFIG_SOC_SERIES_APOLLO3X)
 	ret = am_hal_mspi_configure(data->mspiHandle, &mspiCfg);
+#else
+	ret = am_hal_mspi_device_configure(data->mspiHandle, &mspiCfg);
+#endif
 	if (ret) {
 		return ret;
 	}
