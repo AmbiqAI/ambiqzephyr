@@ -97,9 +97,9 @@
 			pinmux = <M1SCK_P8>, <M1MISO_P10>, <M1MOSI_P9>;
 		};
 		group2 {
-			pinmux = <NCE11_P11>;
+			pinmux = <NCE62_P62>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <4>;
+			ambiq,iom-nce-module = <7>;
 		};
 	};
 	spi2_default: spi2_default {
