@@ -1,0 +1,30 @@
+/*
+ *  Copyright (c) 2023 Ambiq <www.ambiq.com>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		spi-flash0 = &psram0;
+		i2c_fram0 = &fram0;
+	};
+};
+
+&ambiq_mspi1 {
+	psram0: psram0@0x04000000 {
+		compatible = "ambiq,aps6404";
+		reg = <0x04000000>;
+		spi-max-frequency = <48000000>;
+		status = "okay";
+	};
+};
+
+&ambiq_i2c3 {
+	fram0: fram0@0 {
+		compatible = "ambiq,mb85rc64ta";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		status = "okay";
+	};
+};
