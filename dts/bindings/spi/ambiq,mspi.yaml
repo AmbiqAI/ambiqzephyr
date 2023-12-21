@@ -16,3 +16,8 @@ properties:
 
   ambiq,pwrcfg:
     required: true
+
+  chip-select:
+    type: int
+    description: |
+      Use MSPI CS0# or CS1#.
