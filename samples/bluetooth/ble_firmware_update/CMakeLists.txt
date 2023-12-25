@@ -7,4 +7,7 @@ project(ble_firmware_update)
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE ${app_sources})
 
-zephyr_library_include_directories(${ZEPHYR_BASE}/samples/bluetooth)
+zephyr_library_include_directories(
+        ${ZEPHYR_BASE}/samples/bluetooth
+        ${CMAKE_CURRENT_LIST_DIR}/include
+)
