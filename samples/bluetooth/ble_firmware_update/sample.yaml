@@ -1,0 +1,10 @@
+sample:
+  name: BLE Firmware Update
+  description: Update the BLE controller firmware
+tests:
+  sample.bluetooth.ble_firmware_update:
+    harness: bluetooth
+    platform_allow:
+      - apollo4p_blue_kxr_evb
+    tags: bluetooth
+
