@@ -9,13 +9,9 @@
  * in Ambiq Apollo4x EVB with Bluetooth Low Engery supported.
  */
 
-#include <zephyr/logging/log.h>
 #include <zephyr/drivers/bluetooth/hci_driver.h>
 
 #include "am_devices_cooper.h"
-
-#define LOG_MODULE_NAME ble_firmware_update
-LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 /* Uncomment one of UPDATE_BLE_FW, UPDATE_BLE_INFO0 and UPDATE_BLE_INFO1
  * macros to enable the updating of the BLE controller firmware, controller
@@ -69,27 +65,27 @@ static int set_update_sign(uint32_t ui32Sign)
 int main()
 {
 	int err;
-	LOG_INF("BLE Firmware Update Application");
+	printk("BLE Firmware Update Application\n");
 	ble_get_binary(&g_sUpdateImage);
 	err = bt_enable(NULL);
 	if (err) {
-		LOG_ERR("Bluetooth init failed (err %d)", err);
+		printk("Bluetooth init failed (err %d)\n", err);
 		return err;
 	}
 
 	err = set_update_sign(BLE_UPDATE_SIGN);
 	if (err) {
-		LOG_ERR("Set signaure failed (err %d)\n", err);
+		printk("Set signaure failed (err %d)\n", err);
 		return err;
 	}
 
-	LOG_INF("Reset BLE controller to do a forcing upgrade");
+	printk("Reset BLE controller to do a forcing upgrade\n");
 	err = am_devices_cooper_reset_with_sbl_check();
 	if (err) {
-		LOG_ERR("BLE Firmware Update Failed (err %d)", err);
+		printk("BLE Firmware Update Failed (err %d)\n", err);
 		return err;
 	} else {
-		LOG_INF("BLE Firmware Update Application Done!");
+		printk("BLE Firmware Update Application Done!\n");
 	}
 
 	return 0;

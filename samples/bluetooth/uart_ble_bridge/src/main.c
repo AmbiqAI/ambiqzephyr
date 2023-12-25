@@ -1,6 +1,4 @@
 /*
- * Copyright (c) 2016 Nordic Semiconductor ASA
- * Copyright (c) 2015-2016 Intel Corporation
  * Copyright (c) 2023 Ambiq Micro Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -30,7 +28,7 @@
 #include <zephyr/bluetooth/buf.h>
 #include <zephyr/bluetooth/hci_raw.h>
 
-#define LOG_MODULE_NAME uart_bridge
+#define LOG_MODULE_NAME uart_ble_bridge
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
@@ -48,10 +46,10 @@ static K_FIFO_DEFINE(uart_tx_queue);
 #define HCI_EVT 0x04
 
 /* Receiver states. */
-#define STATE_IDLE 0	/* Waiting for packet type. */
-#define STATE_HDR 1	/* Receiving packet header. */
-#define STATE_PAYLOAD 2	/* Receiving packet payload. */
-#define STATE_DISCARD 3	/* Dropping packet. */
+#define STATE_IDLE    0 /* Waiting for packet type. */
+#define STATE_HDR     1 /* Receiving packet header. */
+#define STATE_PAYLOAD 2 /* Receiving packet payload. */
+#define STATE_DISCARD 3 /* Dropping packet. */
 
 /* Length of a discard/flush buffer.
  * This is sized to align with a BLE HCI packet:
@@ -110,8 +108,7 @@ static void rx_isr(void)
 	static int remaining;
 	static uint8_t state;
 	static uint8_t type;
-	static uint8_t hdr_buf[MAX(sizeof(struct bt_hci_cmd_hdr),
-			sizeof(struct bt_hci_acl_hdr))];
+	static uint8_t hdr_buf[MAX(sizeof(struct bt_hci_cmd_hdr), sizeof(struct bt_hci_acl_hdr))];
 	int read;
 
 	do {
@@ -135,9 +132,7 @@ static void rx_isr(void)
 			}
 			break;
 		case STATE_HDR:
-			read = uart_read(uart_dev,
-				       &hdr_buf[hdr_len(type) - remaining],
-				       remaining);
+			read = uart_read(uart_dev, &hdr_buf[hdr_len(type) - remaining], remaining);
 			remaining -= read;
 			if (remaining == 0) {
 				/* Header received. Allocate buffer and get
@@ -147,15 +142,15 @@ static void rx_isr(void)
 				 */
 				switch (type) {
 				case HCI_CMD:
-					buf = bt_buf_get_tx(BT_BUF_CMD, K_NO_WAIT,
-								hdr_buf, hdr_len(type));
-				break;
+					buf = bt_buf_get_tx(BT_BUF_CMD, K_NO_WAIT, hdr_buf,
+							    hdr_len(type));
+					break;
 				case HCI_ACL:
-					buf = bt_buf_get_tx(BT_BUF_ACL_OUT, K_NO_WAIT,
-								hdr_buf, hdr_len(type));
-				break;
+					buf = bt_buf_get_tx(BT_BUF_ACL_OUT, K_NO_WAIT, hdr_buf,
+							    hdr_len(type));
+					break;
 				default:
-				break;
+					break;
 				}
 
 				if (!buf) {
@@ -172,12 +167,10 @@ static void rx_isr(void)
 				} else {
 					state = STATE_PAYLOAD;
 				}
-
 			}
 			break;
 		case STATE_PAYLOAD:
-			read = uart_read(uart_dev, net_buf_tail(buf),
-					remaining);
+			read = uart_read(uart_dev, net_buf_tail(buf), remaining);
 			buf->len += read;
 			remaining -= read;
 			if (remaining == 0) {
@@ -187,8 +180,7 @@ static void rx_isr(void)
 				state = STATE_IDLE;
 			}
 			break;
-		case STATE_DISCARD:
-		{
+		case STATE_DISCARD: {
 			uint8_t discard[HCI_DISCARD_LEN];
 			size_t to_read = MIN(remaining, sizeof(discard));
 
@@ -199,13 +191,11 @@ static void rx_isr(void)
 			}
 
 			break;
-
 		}
 		default:
 			read = 0;
 			__ASSERT_NO_MSG(0);
 			break;
-
 		}
 	} while (read);
 }
@@ -236,8 +226,7 @@ static void bt_uart_isr(const struct device *unused, void *user_data)
 	ARG_UNUSED(unused);
 	ARG_UNUSED(user_data);
 
-	if (!(uart_irq_rx_ready(uart_dev) ||
-	      uart_irq_tx_ready(uart_dev))) {
+	if (!(uart_irq_rx_ready(uart_dev) || uart_irq_tx_ready(uart_dev))) {
 		LOG_DBG("spurious interrupt");
 	}
 
@@ -274,8 +263,7 @@ static void tx_thread(void *p1, void *p2, void *p3)
 
 static int uart_send(struct net_buf *buf)
 {
-	LOG_DBG("buf %p type %u len %u", buf, bt_buf_get_type(buf),
-		    buf->len);
+	LOG_DBG("buf %p type %u len %u", buf, bt_buf_get_type(buf), buf->len);
 
 	switch (bt_buf_get_type(buf)) {
 	case BT_BUF_ACL_IN:
@@ -300,13 +288,6 @@ static int hci_uart_init(void)
 {
 	LOG_DBG("");
 
-	if (IS_ENABLED(CONFIG_USB_CDC_ACM)) {
-		if (usb_enable(NULL)) {
-			LOG_ERR("Failed to enable USB");
-			return -EINVAL;
-		}
-	}
-
 	if (!device_is_ready(uart_dev)) {
 		LOG_ERR("HCI UART %s is not ready", uart_dev->name);
 		return -EINVAL;
@@ -326,11 +307,12 @@ SYS_INIT(hci_uart_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
 int main(void)
 {
-	/* incoming events and data from the controller */
-	static K_FIFO_DEFINE(rx_queue);
 	int err;
 
-	__ASSERT(uart_dev, "UART device is NULL");
+	LOG_INF("UART BLE Bridge Application");
+
+	/* incoming events and data from the controller */
+	static K_FIFO_DEFINE(rx_queue);
 
 	/* Enable the raw interface, this will in turn open the HCI driver */
 	bt_enable_raw(&rx_queue);
@@ -340,9 +322,8 @@ int main(void)
 	/* Spawn the TX thread and start feeding commands and data to the
 	 * controller
 	 */
-	k_thread_create(&tx_thread_data, tx_thread_stack,
-			K_THREAD_STACK_SIZEOF(tx_thread_stack), tx_thread,
-			NULL, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
+	k_thread_create(&tx_thread_data, tx_thread_stack, K_THREAD_STACK_SIZEOF(tx_thread_stack),
+			tx_thread, NULL, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
 	k_thread_name_set(&tx_thread_data, "HCI uart TX");
 
 	while (1) {

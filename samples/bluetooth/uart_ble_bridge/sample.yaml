@@ -1,8 +1,8 @@
 sample:
-  name: Bluetooth UART Bridge
-  description: Bluetooth UART Bridge Sample
+  name: UART BLE Bridge
+  description: UART BLE Bridge Sample
 tests:
-  sample.bluetooth.uart_bridge:
+  sample.bluetooth.uart_ble_bridge:
     harness: bluetooth
     platform_allow:
       - apollo4p_blue_kxr_evb

@@ -73,14 +73,11 @@ static struct bt_conn_auth_cb auth_cb_display = {
 	.cancel = auth_cancel,
 };
 
-static void amota_notify(void)
-{
-	bt_amota_notify();
-}
-
 int main(void)
 {
 	int err;
+
+	printk("BLE AMOTA Application\n");
 
 	err = bt_enable(NULL);
 	if (err) {
