@@ -67,15 +67,22 @@ int main()
 	int err;
 	printk("BLE Firmware Update Application\n");
 	ble_get_binary(&g_sUpdateImage);
+
+	/* Calling bt_enable instead of bt_enable_raw to use the designed HCI command
+	 * synchronization semaphore and response status check in host stack, since the setting
+	 * signature is the most important command in the upgrading process and we need to make
+	 * sure it is sent to the BLE controller successfully.
+	 */
 	err = bt_enable(NULL);
 	if (err) {
 		printk("Bluetooth init failed (err %d)\n", err);
 		return err;
 	}
 
+	/* Set the corresponding updating signature to BLE controller. */
 	err = set_update_sign(BLE_UPDATE_SIGN);
 	if (err) {
-		printk("Set signaure failed (err %d)\n", err);
+		printk("Set signature failed (err %d)\n", err);
 		return err;
 	}
 
