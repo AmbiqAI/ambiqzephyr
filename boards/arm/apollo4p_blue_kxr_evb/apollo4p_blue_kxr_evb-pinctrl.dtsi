@@ -16,6 +16,15 @@
 			input-enable;
 		};
 	};
+	uart1_default: uart1_default {
+		group1 {
+			pinmux = <UART1TX_P0>;
+		};
+		group2 {
+			pinmux = <UART1RX_P2>;
+			input-enable;
+		};
+	};
 	i2c0_default: i2c0_default {
 		group1 {
 			pinmux = <M0SCL_P5>, <M0SDAWIR3_P6>;
