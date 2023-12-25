@@ -1,0 +1,8 @@
+sample:
+  name: Bluetooth FCC Test
+tests:
+  sample.bluetooth.fcc_test:
+    harness: bluetooth
+    platform_allow:
+      - apollop_blue_kxr_evb
+    tags: bluetooth
