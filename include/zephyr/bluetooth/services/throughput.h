@@ -12,9 +12,6 @@
  * @defgroup bt_throughput Throughput Service (THROUGHPUT)
  * @ingroup bluetooth
  * @{
- *
- * [Experimental] Users should note that the APIs can change
- * as a part of ongoing development.
  */
 
 #include <stdint.h>

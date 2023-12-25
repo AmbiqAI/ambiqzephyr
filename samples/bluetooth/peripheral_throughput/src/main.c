@@ -94,7 +94,6 @@ int main(void)
 
 	while (1) {
 		k_sleep(K_USEC(1));
-
 		throughput_notify();
 	}
 	return 0;

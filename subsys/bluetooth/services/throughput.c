@@ -163,7 +163,7 @@ static int bt_throughput_init(void)
 {
 	throughput_notify_ch =
 		bt_gatt_find_by_uuid(throughput_svc.attrs, 0, BT_UUID_THROUGHPUT_TX_CHAR);
-    notify_params.attr = throughput_notify_ch;
+	notify_params.attr = throughput_notify_ch;
 
 	bt_gatt_cb_register(&gatt_callbacks);
 
@@ -172,7 +172,7 @@ static int bt_throughput_init(void)
 
 int bt_throughput_notify(void)
 {
-	int ret = -1;
+	int ret = -ENOTSUP;
 
 	do {
 		if ((throughput.data.trans_mode != THROUGHPUT_TRANS_MODE_TX) &&
@@ -184,6 +184,7 @@ int bt_throughput_notify(void)
 			if (throughput.data.trans_mode == THROUGHPUT_TRANS_MODE_TRX) {
 				break;
 			} else {
+				/* Continue the next round TX testing. */
 				throughput.data.tx_index = 1;
 			}
 		}
@@ -193,11 +194,11 @@ int bt_throughput_notify(void)
 		throughput.data.tx_payload[0] = (uint8_t)throughput.data.tx_index;
 		throughput.data.tx_payload[1] = (uint8_t)(throughput.data.tx_index >> 8);
 		ret = bt_gatt_notify_cb(throughput.conn, &notify_params);
-		throughput.data.tx_index++;
-		if ((throughput.data.trans_mode == THROUGHPUT_TRANS_MODE_TRX) &&
-		    (throughput.data.tx_index == throughput.data.max_trans_packet)) {
+		if (ret) {
 			break;
 		}
+
+		throughput.data.tx_index++;
 	} while (0);
 
 	return ret;

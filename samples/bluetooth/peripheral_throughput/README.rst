@@ -1,7 +1,7 @@
-.. _throughput:
+.. _peripheral_throughput:
 
-Bluetooth: Throughput
-#####################
+Bluetooth: Peripheral Throughput
+################################
 
 Overview
 ********

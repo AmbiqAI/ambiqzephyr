@@ -1,8 +1,8 @@
 sample:
-  name: Bluetooth Throughput
+  name: Bluetooth Peripheral Throughput
   description: Demonstrates the Throughput GATT Service
 tests:
-  sample.bluetooth.throughput:
+  sample.bluetooth.peripheral_throughput:
     harness: bluetooth
     platform_allow:
       - apollo4p_blue_kxr_evb
