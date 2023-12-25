@@ -5,4 +5,8 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(mspi_test)
 
 FILE(GLOB app_sources src/*.c)
+# message("ENV:  $ENV{ZEPHYR_BASE}")
+
+# add_compile_options(-DENABLE_FEATURE=1)
+
 target_sources(app PRIVATE ${app_sources})

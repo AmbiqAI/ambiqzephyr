@@ -137,7 +137,7 @@
 		};
 
 		mspi0: spi@50014000 {
-			compatible = "ambiq,mspi";
+			compatible = "ambiq,ap3-mspi";
 			reg = <0x50014000 0x400>;
 			interrupts = <20 0>;
 			#address-cells = <1>;
@@ -147,7 +147,7 @@
 		};
 
 		mspi1: spi@50015000 {
-			compatible = "ambiq,mspi";
+			compatible = "ambiq,ap3-mspi";
 			reg = <0x50015000 0x400>;
 			interrupts = <32 0>;
 			#address-cells = <1>;
@@ -157,7 +157,7 @@
 		};
 
 		mspi2: spi@50016000 {
-			compatible = "ambiq,mspi";
+			compatible = "ambiq,ap3-mspi";
 			reg = <0x50016000 0x400>;
 			interrupts = <33 0>;
 			#address-cells = <1>;

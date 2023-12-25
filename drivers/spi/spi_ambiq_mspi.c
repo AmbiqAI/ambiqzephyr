@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT ambiq_mspi
+#define DT_DRV_COMPAT ambiq_ap3_mspi
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(mspi_ambiq);
+LOG_MODULE_REGISTER(ambiq_ap3_mspi);
 
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/pinctrl.h>
