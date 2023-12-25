@@ -1,0 +1,9 @@
+sample:
+  name: Bluetooth Throughput
+  description: Demonstrates the Throughput GATT Service
+tests:
+  sample.bluetooth.throughput:
+    harness: bluetooth
+    platform_allow:
+      - apollo4p_blue_kxr_evb
+    tags: bluetooth
