@@ -1,0 +1,9 @@
+sample:
+  name: Bluetooth AMOTA
+  description: Demonstrates the AMOTA GATT Service
+tests:
+  sample.bluetooth.amota:
+    harness: bluetooth
+    platform_allow:
+      - apollo4p_blue_kxr_evb
+    tags: bluetooth

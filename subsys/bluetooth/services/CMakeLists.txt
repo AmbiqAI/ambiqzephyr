@@ -11,6 +11,8 @@ zephyr_sources_ifdef(CONFIG_BT_TPS tps.c)
 
 zephyr_sources_ifdef(CONFIG_BT_THROUGHPUT throughput.c)
 
+zephyr_sources_ifdef(CONFIG_BT_AMOTA amota.c)
+
 if(CONFIG_BT_OTS OR CONFIG_BT_OTS_CLIENT)
   add_subdirectory(ots)
 endif()

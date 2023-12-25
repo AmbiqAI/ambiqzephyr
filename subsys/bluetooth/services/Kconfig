@@ -16,6 +16,8 @@ rsource "Kconfig.tps"
 
 rsource "Kconfig.throughput"
 
+rsource "Kconfig.amota"
+
 rsource "ias/Kconfig.ias"
 
 rsource "ots/Kconfig"
