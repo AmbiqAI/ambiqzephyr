@@ -48,6 +48,7 @@ extern "C" {
 /** @brief Size of the control point buffer. */
 #define BT_ANCS_CP_BUF_SIZE 256
 
+/** @brief Atomic opertionn bit. */
 enum {
 	ANCS_NS_NOTIF_ENABLED,
 	ANCS_DS_NOTIF_ENABLED,
@@ -292,54 +293,12 @@ struct bt_ancs_attr_response {
 	uint8_t app_id[BT_ANCS_ATTR_DATA_MAX];
 };
 
-/**@brief Notification Source notification callback function.
- *
- * @param[in] ancsc     ANCS client instance.
- * @param[in] err       0 if the notification is valid.
- *                      Otherwise, contains a (negative) error code.
- * @param[in] notif     iOS notification structure.
- */
-typedef void (*bt_ancs_ns_notif_cb)(struct bt_ancsc *ancsc, int err,
-				    const struct bt_ancs_evt_notif *notif);
-
-/**@brief Data Source notification callback function.
- *
- * @param[in] ancsc     ANCS client instance.
- * @param[in] response  Attribute response structure.
- */
-typedef void (*bt_ancs_ds_notif_cb)(struct bt_ancsc *ancsc,
-				    const struct bt_ancs_attr_response *response);
-
 /**@brief Write response callback function.
  *
  * @param[in] ancsc   ANCS client instance.
  * @param[in] err     ATT error code.
  */
 typedef void (*bt_ancs_write_cb)(struct bt_ancsc *ancsc);
-
-struct bt_ancs_parse_sm {
-	/** The current list of attributes that are being parsed. This will
-	 *  point to either ancs_notif_attr_list or ancs_app_attr_list in
-	 *  struct bt_ancsc.
-	 */
-	struct bt_ancs_attr_list *attr_list;
-	/** Number of possible attributes. When parsing begins, it is set to
-	 *  either @ref BT_ANCS_NOTIF_ATTR_COUNT or @ref BT_ANCS_APP_ATTR_COUNT.
-	 */
-	uint32_t attr_count;
-
-	/** Variable to keep track of what command type is being parsed
-	 *  ( @ref BT_ANCS_COMMAND_ID_GET_NOTIF_ATTRIBUTES or
-	 *  @ref BT_ANCS_COMMAND_ID_GET_APP_ATTRIBUTES).
-	 */
-	enum bt_ancsc_cmd_id command_id;
-	/** Attribute that the parsed data is copied into. */
-	uint8_t *data_dest;
-	/** Variable to keep track of the parsing progress, for the given attribute. */
-	uint16_t current_attr_index;
-	/** Variable to keep track of the parsing progress, for the given app identifier. */
-	uint32_t current_app_id_index;
-};
 
 /**@brief ANCS client instance, which contains various status information. */
 struct bt_ancsc {
@@ -364,14 +323,8 @@ struct bt_ancsc {
 	/** GATT subscribe parameters for Notification Source Characteristic. */
 	struct bt_gatt_subscribe_params ns_notif_params;
 
-	/** Callback function for Notification Source notification. */
-	bt_ancs_ns_notif_cb ns_notif_cb;
-
 	/** GATT subscribe parameters for Data Source Characteristic. */
 	struct bt_gatt_subscribe_params ds_notif_params;
-
-	/** Callback function for Data Source notification. */
-	bt_ancs_ds_notif_cb ds_notif_cb;
 
 	/** For all attributes: contains information about whether the
 	 *  attributes are to be requested upon attribute request, and
@@ -384,16 +337,6 @@ struct bt_ancsc {
 	 *  length and buffer of where to store attribute data.
 	 */
 	struct bt_ancs_attr_list ancs_app_attr_list[BT_ANCS_APP_ATTR_COUNT];
-
-	/** The number of attributes that are to be requested when an iOS
-	 *  notification attribute request is made.
-	 */
-	uint32_t number_of_requested_attr;
-
-	/** Structure containing different information used to parse incoming
-	 *  attributes correctly (from data_source characteristic).
-	 */
-	struct bt_ancs_parse_sm parse_info;
 
 	/** Allocate memory for the attribute response here.
 	 */
@@ -440,7 +383,7 @@ int bt_ancs_unsubscribe(struct bt_ancsc *ancsc);
 int bt_ancs_notification_action(struct bt_ancsc *ancsc, uint32_t uuid,
 				enum bt_ancs_action_id_values action_id, bt_ancs_write_cb func);
 
-/**@brief Internal function for writing to ANCS Control Point.
+/**@brief Function for writing to ANCS Control Point.
  *
  * The caller is expected to set the ANCS_CP_WRITE_PENDING and to set up
  * the Control Point data buffer before calling this function.
@@ -454,10 +397,36 @@ int bt_ancs_notification_action(struct bt_ancsc *ancsc, uint32_t uuid,
  */
 int bt_ancs_write_cp(struct bt_ancsc *ancsc, uint16_t len, bt_ancs_write_cb func);
 
+/**@brief Function for getting App attributes.
+ *
+ * @param[in] ancs_c  ANCS client instance.
+ * @param[in] app_id  Data pointer of App identifier.
+ * @param[in] len     Length of App identifier.
+ *
+ * @retval 0 If the operation is successful.
+ *           Otherwise, a (negative) error code is returned.
+ */
 int bt_ancs_get_app_attrs(struct bt_ancsc *ancsc, const uint8_t *app_id, uint16_t len);
 
+/**@brief Function for getting notification attributes.
+ *
+ * @param[in] ancs_c  ANCS client instance.
+ * @param[in] uid     Notification UID.
+ *
+ * @retval 0 If the operation is successful.
+ *           Otherwise, a (negative) error code is returned.
+ */
 int bt_ancs_get_notif_attrs(struct bt_ancsc *ancsc, const uint32_t uid);
 
+/**@brief Function for processing the Data Source attributes.
+ *
+ * @param[in] ancs_c  ANCS client instance.
+ * @param[in] data    Pointer of data to be processed.
+ * @param[in] len     Length of data to be processed.
+ *
+ * @retval 0 If the operation is successful.
+ *           Otherwise, a (negative) error code is returned.
+ */
 int bt_ancs_process_ds_attrs(struct bt_ancsc *ancsc, const uint8_t *data, const uint16_t len);
 
 #ifdef __cplusplus

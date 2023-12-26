@@ -35,8 +35,10 @@ static const char *notif_attr_str[BT_ANCS_NOTIF_ATTR_COUNT] = {"App Identifier",
 /* String print for the iOS notification event types. */
 static const char *event_id_str[BT_ANCS_EVT_ID_COUNT] = {"Added", "Modified", "Removed"};
 
+#if 0 /* To be implemented further */
 /* String print for the iOS App attribute types. */
 static const char *app_attr_str[BT_ANCS_APP_ATTR_COUNT] = {"Display Name"};
+#endif
 
 static void ancs_process_notif(struct bt_ancsc *ancsc, const uint8_t *data, const uint16_t len)
 {
@@ -373,7 +375,9 @@ static void ancs_process_notif_attrs(struct bt_ancsc *ancsc, const uint8_t *data
 				       &data[proc_offset], accept_attr_len);
 				consume_bytes = ancsc->ancs_notif_attr_list[attr_index].attr_len;
 			} else {
-				/* TODO */
+				/* TODO: may need to consider if the attribute data comes from
+				 * different packets.
+				 */
 			}
 
 			memset(notif_print, 0, sizeof(notif_print));

@@ -37,6 +37,7 @@ LOG_MODULE_REGISTER(throughput);
 struct bt_throughput throughput;
 static uint16_t tx_length = 0;
 static struct bt_gatt_attr *throughput_notify_ch;
+static bool throughput_notif_enabled = false;
 
 void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
 {
@@ -51,8 +52,8 @@ static void throughput_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t
 {
 	ARG_UNUSED(attr);
 
-	bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
-	LOG_INF("Throughput notifications %s", notif_enabled ? "enabled" : "disabled");
+	throughput_notif_enabled = (value == BT_GATT_CCC_NOTIFY);
+	LOG_INF("Throughput notifications %s", throughput_notif_enabled ? "enabled" : "disabled");
 }
 
 static ssize_t write_callback(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -172,16 +173,22 @@ static int bt_throughput_init(void)
 
 int bt_throughput_notify(void)
 {
-	int ret = -ENOTSUP;
+	int ret = 0;
+
+	if (!throughput_notif_enabled) {
+		return -EPERM;
+	}
 
 	do {
 		if ((throughput.data.trans_mode != THROUGHPUT_TRANS_MODE_TX) &&
 		    (throughput.data.trans_mode != THROUGHPUT_TRANS_MODE_TRX)) {
+			ret = -ENOTSUP;
 			break;
 		}
 
 		if (throughput.data.tx_index > throughput.data.max_trans_packet) {
 			if (throughput.data.trans_mode == THROUGHPUT_TRANS_MODE_TRX) {
+				/* Start to receive packets. */
 				break;
 			} else {
 				/* Continue the next round TX testing. */
