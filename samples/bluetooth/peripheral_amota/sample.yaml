@@ -1,8 +1,8 @@
 sample:
   name: Bluetooth AMOTA
-  description: Demonstrates the AMOTA GATT Service
+  description: Demonstrates the Ambiq OTA GATT Service
 tests:
-  sample.bluetooth.amota:
+  sample.bluetooth.periphral_amota:
     harness: bluetooth
     platform_allow:
       - apollo4p_blue_kxr_evb

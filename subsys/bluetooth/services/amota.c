@@ -4,16 +4,12 @@
 
 /*
  * Copyright (c) 2023 Ambiq Micro Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <zephyr/types.h>
-#include <stddef.h>
-#include <string.h>
-#include <errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/init.h>
+#include <zephyr/sys/byteorder.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
@@ -335,8 +331,8 @@ void amotas_packet_handler(eAmotaCommand cmd, uint16_t len, uint8_t *buf)
 		}
 
 		if (amota.data.state == AMOTA_STATE_GETTING_FW) {
-			BYTES_TO_UINT32(ver, buf + 32);
-			BYTES_TO_UINT32(fwCrc, buf + 12);
+			fwCrc = sys_get_le32(buf + 12);
+			ver = sys_get_le32(buf + 32);
 
 			if (ver == amota.data.fwHeader.version &&
 			    fwCrc == amota.data.fwHeader.fwCrc) {
@@ -345,16 +341,15 @@ void amotas_packet_handler(eAmotaCommand cmd, uint16_t len, uint8_t *buf)
 		}
 
 		amota.data.imageCalCrc = 0;
-
-		BYTES_TO_UINT32(amota.data.fwHeader.encrypted, buf);
-		BYTES_TO_UINT32(amota.data.fwHeader.fwStartAddr, buf + 4);
-		BYTES_TO_UINT32(amota.data.fwHeader.fwLength, buf + 8);
-		BYTES_TO_UINT32(amota.data.fwHeader.fwCrc, buf + 12);
-		BYTES_TO_UINT32(amota.data.fwHeader.secInfoLen, buf + 16);
-		BYTES_TO_UINT32(amota.data.fwHeader.version, buf + 32);
-		BYTES_TO_UINT32(amota.data.fwHeader.fwDataType, buf + 36);
-		BYTES_TO_UINT32(amota.data.fwHeader.storageType, buf + 40);
-		BYTES_TO_UINT32(amota.data.fwHeader.imageId, buf + 44);
+		amota.data.fwHeader.encrypted = sys_get_le32(buf);
+		amota.data.fwHeader.fwStartAddr = sys_get_le32(buf + 4);
+		amota.data.fwHeader.fwLength = sys_get_le32(buf + 8);
+		amota.data.fwHeader.fwCrc = sys_get_le32(buf + 12);
+		amota.data.fwHeader.secInfoLen = sys_get_le32(buf + 16);
+		amota.data.fwHeader.version = sys_get_le32(buf + 32);
+		amota.data.fwHeader.fwDataType = sys_get_le32(buf + 36);
+		amota.data.fwHeader.storageType = sys_get_le32(buf + 40);
+		amota.data.fwHeader.imageId = sys_get_le32(buf + 44);
 
 		/* get the SBL OTA storage address if the image is for SBL
 		 * the address can be 0x8000 or 0x10000 based on current SBL running address
@@ -479,14 +474,14 @@ void amotas_packet_handler(eAmotaCommand cmd, uint16_t len, uint8_t *buf)
 
 	case AMOTA_CMD_FW_RESET:
 		LOG_INF("OTA downloading finished, will disconnect BLE link soon");
-        k_sleep(K_MSEC(100));
+		k_sleep(K_MSEC(100));
 
 		amotas_reply_to_client(cmd, AMOTA_STATUS_SUCCESS, NULL, 0);
 
 		/* Delay here to let packet go through the RF before we disconnect */
 		k_sleep(K_MSEC(1000));
 
-        am_hal_reset_control(AM_HAL_RESET_CONTROL_SWPOR, 0);
+		am_hal_reset_control(AM_HAL_RESET_CONTROL_SWPOR, 0);
 		break;
 
 	default:
@@ -525,6 +520,7 @@ static ssize_t write_callback(struct bt_conn *conn, const struct bt_gatt_attr *a
 			      const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
 	uint8_t dataIdx = 0;
+	uint32_t peerCrc = 0;
 	uint32_t calDataCrc = 0;
 	uint8_t *pValue = (uint8_t *)buf;
 
@@ -537,7 +533,7 @@ static ssize_t write_callback(struct bt_conn *conn, const struct bt_gatt_attr *a
 
 	/* This is a new packet. */
 	if (amota.data.pkt.offset == 0) {
-		BYTES_TO_UINT16(amota.data.pkt.len, pValue);
+		amota.data.pkt.len = sys_get_le16(pValue);
 		amota.data.pkt.type = (eAmotaCommand)pValue[2];
 		dataIdx = 3;
 
@@ -566,10 +562,9 @@ static ssize_t write_callback(struct bt_conn *conn, const struct bt_gatt_attr *a
 
 	/* The whole packet has been received */
 	if (amota.data.pkt.offset >= amota.data.pkt.len) {
-		uint32_t peerCrc = 0;
 		/* Check CRC */
-		BYTES_TO_UINT32(peerCrc,
-				amota.data.pkt.data + amota.data.pkt.len - AMOTA_CRC_SIZE_IN_PKT);
+		peerCrc = sys_get_le32(amota.data.pkt.data + amota.data.pkt.len -
+				       AMOTA_CRC_SIZE_IN_PKT);
 		calDataCrc = CalcCrc32(0xFFFFFFFFU, amota.data.pkt.len - AMOTA_CRC_SIZE_IN_PKT,
 				       amota.data.pkt.data);
 		LOG_DBG("calDataCrc = 0x%x", calDataCrc);

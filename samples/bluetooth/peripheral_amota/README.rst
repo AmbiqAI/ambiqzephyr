@@ -1,7 +1,7 @@
-.. _amota:
+.. _peripheral_amota:
 
-Bluetooth: AMOTA
-################
+Bluetooth: Peripheral AMOTA
+###########################
 
 Overview
 ********
