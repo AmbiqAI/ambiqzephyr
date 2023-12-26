@@ -1,0 +1,37 @@
+#
+# Copyright 2023, NXP
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+description: Ambiq Raydium RM69330 Panel
+
+compatible: "ambiq,rm69330"
+
+include: [display-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reset-gpios:
+    type: phandle-array
+    description: |
+      The RESETn pin is asserted to disable the sensor causing a hard
+      reset.  The sensor receives this as an active-low signal.
+
+  te-gpios:
+    type: phandle-array
+    description: |
+      The tearing effect pin is asserted by the controller at a display
+      VSYNC interval. This permits the controller to send new display
+      data during a VSYNC interval, removing tearing.
+
+  bl-gpios:
+    type: phandle-array
+    description: |
+      The BLn pin is asserted to control the backlight of the panel.
+      The sensor receives this as an active-high signal.
+
+  pixel-format:
+    type: int
+    required: true
+    description:
+      Pixel format. Available formats in dt-bindings/mipi_dsi/mipi_dsi.h.

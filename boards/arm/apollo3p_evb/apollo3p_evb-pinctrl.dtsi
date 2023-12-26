@@ -135,7 +135,7 @@
 				 <MSPI0_8_P24>;
 		};
 		group2 {
-			pinmux = <NCE37_P37>;
+			pinmux = <NCE28_P28>;
 			drive-push-pull;
 			drive-strength = "0.5";
 			ambiq,iom-nce-module = <24>;

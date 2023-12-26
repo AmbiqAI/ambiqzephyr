@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT raydium_rm67162
+#define DT_DRV_COMPAT ambiq_rm67162
 
 #include <zephyr/drivers/display.h>
 #include <zephyr/drivers/mipi_dsi.h>

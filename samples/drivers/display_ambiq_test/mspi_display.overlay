@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2021 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,display = &mspi_display;
+	};
+
+	mspi_display: ambiq_rm69330 {
+		compatible = "ambiq,rm69330";
+		height = <100>;
+		width = <100>;
+		reset-gpios = <&gpio0_31 11 GPIO_ACTIVE_LOW>;
+		bl-gpios = <&gpio32_63 49 GPIO_ACTIVE_LOW>;
+		te-gpios = <&gpio32_63 38 GPIO_ACTIVE_LOW>;
+		pixel-format = MIPI_DSI_PIXFMT_RGB888;
+		pinctrl-0 = <&mspi0_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
