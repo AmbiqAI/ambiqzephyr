@@ -254,6 +254,12 @@ int bt_ancs_get_notif_attrs(struct bt_ancsc *ancsc, const uint32_t uid)
 	uint16_t length = 0;
 	uint8_t *data = ancsc->cp_data;
 
+	/* An Notification Consumer(NC) may want to retrieve more information about an iOS
+	 * notification from Notification Provider(NP). It can issue a request by writing specific
+	 * commands to the Control Point characteristic, then the NP will promptly respond to the
+	 * request through a stream of GATT notifications on the Data Source characteristic.
+	 */
+
 	/* Encode Command ID. */
 	*(data + length++) = BT_ANCS_COMMAND_ID_GET_NOTIF_ATTRIBUTES;
 

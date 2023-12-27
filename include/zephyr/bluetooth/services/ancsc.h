@@ -12,6 +12,10 @@
  * @{
  */
 
+/* The ANCS specification details please refer to
+ * https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html
+ */
+
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/conn.h>
 
@@ -398,6 +402,10 @@ int bt_ancs_notification_action(struct bt_ancsc *ancsc, uint32_t uuid,
 int bt_ancs_write_cp(struct bt_ancsc *ancsc, uint16_t len, bt_ancs_write_cb func);
 
 /**@brief Function for getting App attributes.
+ *
+ * An Notification Consumer (NC) can issue a request to retrieve more information about an iOS
+ * notification from Notification Provider (NP) by writing specific commands to the Control Point
+ * characteristic.
  *
  * @param[in] ancs_c  ANCS client instance.
  * @param[in] app_id  Data pointer of App identifier.
