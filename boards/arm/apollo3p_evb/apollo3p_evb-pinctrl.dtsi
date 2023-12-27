@@ -130,15 +130,19 @@
 		group1 {
 			pinmux = <MSPI0_0_P22>,
 				 <MSPI0_1_P26>,
-				 <MSPI0_2_P4>,
-				 <MSPI0_3_P23>,
-				 <MSPI0_8_P24>;
+				 <MSPI0_2_P4>;
+			drive-strength = "0.5";
+
 		};
 		group2 {
 			pinmux = <NCE37_P37>;
 			drive-push-pull;
 			drive-strength = "0.5";
 			ambiq,iom-nce-module = <24>;
+		};
+		group3 {
+			pinmux = <MSPI0_8_P24>;
+			drive-strength = "1.0";
 		};
 	};
 	mspi1_default: mspi1_default{

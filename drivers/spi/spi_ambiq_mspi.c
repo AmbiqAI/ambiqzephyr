@@ -27,15 +27,15 @@ typedef int (*ambiq_mspi_pwr_func_t)(void);
 struct mspi_ambiq_config {
 	uint32_t base;
 	int size;
-	uint32_t clock_freq;
-	const struct pinctrl_dev_config *pcfg;
+	// uint32_t clock_freq;
+	am_hal_mspi_dev_config_t mspicfg;
+	const struct pinctrl_dev_config *pincfg;
 	ambiq_mspi_pwr_func_t pwr_func;
 };
 
 struct mspi_ambiq_data {
 	struct spi_context ctx;
 	void *mspiHandle;
-	am_hal_mspi_dev_config_t mspicfg;
 };
 
 static int mspi_set_freq(uint32_t freq)
@@ -43,9 +43,7 @@ static int mspi_set_freq(uint32_t freq)
 	uint32_t d = MSPI_MAX_FREQ / freq;
 
 	switch (d) {
-	// case AM_HAL_MSPI_CLK_96MHZ:
 	case AM_HAL_MSPI_CLK_48MHZ:
-	// case AM_HAL_MSPI_CLK_32MHZ:
 	case AM_HAL_MSPI_CLK_24MHZ:
 	case AM_HAL_MSPI_CLK_16MHZ:
 	case AM_HAL_MSPI_CLK_12MHZ:
@@ -55,8 +53,8 @@ static int mspi_set_freq(uint32_t freq)
 	case AM_HAL_MSPI_CLK_3MHZ:
 		break;
 	default:
+		d = AM_HAL_MSPI_CLK_INVALID;
 		LOG_ERR("Frequency not supported!");
-		// d = AM_HAL_MSPI_CLK_INVALID;
 		break;
 	}
 
@@ -74,10 +72,10 @@ static int mspi_config(const struct device *dev, const struct spi_config *config
 		return -ENOTSUP;
 	}
 
-	if (SPI_WORD_SIZE_GET(config->operation) != 8) {
-		LOG_ERR("Word size must be %d", SPI_WORD_SIZE);
-		return -ENOTSUP;
-	}
+	// if (SPI_WORD_SIZE_GET(config->operation) != 8) {
+	// 	LOG_ERR("Word size must be %d", SPI_WORD_SIZE);
+	// 	return -ENOTSUP;
+	// }
 
 	if ((config->operation & SPI_LINES_MASK) != SPI_LINES_SINGLE) {
 		LOG_ERR("Only single mode is currently supported");
@@ -94,17 +92,20 @@ static int mspi_config(const struct device *dev, const struct spi_config *config
 		return -ENOTSUP;
 	}
 
-	if (config->operation & (SPI_MODE_CPOL | SPI_MODE_CPHA)) {
-		if (config->operation & (SPI_MODE_CPOL && SPI_MODE_CPHA)) {
-			mspicfg.eSpiMode = AM_HAL_MSPI_SPI_MODE_3;
-		} else if (config->operation & SPI_MODE_CPOL) {
-			mspicfg.eSpiMode = AM_HAL_MSPI_SPI_MODE_2;
-		} else if (config->operation & SPI_MODE_CPHA) {
-			mspicfg.eSpiMode = AM_HAL_MSPI_SPI_MODE_1;
+	if (config->operation & SPI_MODE_CPOL) {
+		if (config->operation & SPI_MODE_CPHA) {
+			return AM_HAL_MSPI_SPI_MODE_3;
 		} else {
-			mspicfg.eSpiMode = AM_HAL_MSPI_SPI_MODE_0;
+			return AM_HAL_MSPI_SPI_MODE_2;
+		}
+	} else {
+		if (config->operation & SPI_MODE_CPHA) {
+			return AM_HAL_MSPI_SPI_MODE_1;
+		} else {
+			return AM_HAL_MSPI_SPI_MODE_0;
 		}
 	}
+
 
 	mspicfg.eClockFreq = mspi_set_freq(config->frequency);
 	if (mspicfg.eClockFreq == AM_HAL_MSPI_CLK_INVALID) {
@@ -135,28 +136,49 @@ static int mspi_ambiq_xfer(const struct device *dev, const struct spi_config *co
 	struct spi_context *ctx = &data->ctx;
 	int ret;
 
-	am_hal_mspi_pio_transfer_t trans = {0};
+	am_hal_mspi_pio_transfer_t Transaction;
+    //
+    // Create the individual write transaction.
+    //
+    // Transaction.ui32NumBytes       = ui32NumBytes;
+    Transaction.bScrambling        = false;
+    // Transaction.eDirection         = AM_HAL_MSPI_TX;
+    Transaction.bSendAddr          = true;
+    Transaction.ui32DeviceAddr     = 0xA5 << 8;	//ui32Instr << 8;
+    Transaction.bSendInstr         = true;
+    Transaction.ui16DeviceInstr    = 0x02;	//AM_DEVICES_MSPI_RM69330_CMD_WRITE;
+    Transaction.bTurnaround        = false;
+    Transaction.bDCX                    = false;
+    Transaction.bEnWRLatency            = false;
+    Transaction.bQuadCmd                = false;
+    Transaction.bContinue               = false;    // MSPI CONT is deprecated for Apollo3
 
-	trans.bSendAddr = true;
-	trans.bSendInstr = true;
-	trans.ui16DeviceInstr = *ctx->tx_buf;
+
+    // Transaction.pui32Buffer        = (uint32_t*)pData;
+	// trans.bSendAddr = true;
+	// trans.bSendInstr = true;
+	// trans.ui16DeviceInstr = *ctx->tx_buf;
 	spi_context_update_tx(ctx, 1, 1);
-	trans.ui32DeviceAddr = *ctx->tx_buf;
+	// trans.ui32DeviceAddr = *ctx->tx_buf;
 
-	if (ctx->rx_buf != NULL) {
-		spi_context_update_rx(ctx, 1, ctx->rx_len);
-		trans.eDirection = AM_HAL_MSPI_RX;
-		trans.pui32Buffer = (uint32_t *)ctx->rx_buf;
-		trans.ui32NumBytes = ctx->rx_len;
+	Transaction.eDirection = AM_HAL_MSPI_TX;
+	Transaction.pui32Buffer = (uint32_t *)ctx->tx_buf;
+	Transaction.ui32NumBytes = ctx->tx_len;
 
-	} else if (ctx->tx_buf != NULL) {
-		spi_context_update_tx(ctx, 1, 1);
-		trans.eDirection = AM_HAL_MSPI_TX;
-		trans.pui32Buffer = (uint32_t *)ctx->tx_buf;
-		trans.ui32NumBytes = ctx->tx_len;
-	}
+	// if (ctx->rx_buf != NULL) {
+	// 	spi_context_update_rx(ctx, 1, ctx->rx_len);
+	// 	Transaction.eDirection = AM_HAL_MSPI_RX;
+	// 	Transaction.pui32Buffer = (uint32_t *)ctx->rx_buf;
+	// 	Transaction.ui32NumBytes = ctx->rx_len;
 
-	ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &trans, MSPI_TIMEOUT_US);
+	// } else if (ctx->tx_buf != NULL) {
+	// 	spi_context_update_tx(ctx, 1, 1);
+	// 	Transaction.eDirection = AM_HAL_MSPI_TX;
+	// 	Transaction.pui32Buffer = (uint32_t *)ctx->tx_buf;
+	// 	Transaction.ui32NumBytes = ctx->tx_len;
+	// }
+
+	ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &Transaction, MSPI_TIMEOUT_US);
 
 	spi_context_complete(ctx, dev, 0);
 
@@ -204,28 +226,50 @@ static struct spi_driver_api mspi_ambiq_driver_api = {
 
 static int mspi_ambiq_init(const struct device *dev)
 {
+	int ret;
 	struct mspi_ambiq_data *data = dev->data;
-	const struct mspi_ambiq_config *cfg = dev->config;
+	struct mspi_ambiq_config *cfg = dev->config;
+	void            *pMspiHandle;
+
 	// am_hal_mspi_config_t mspiCfg = {0};
 
 	// mspiCfg.pTCB = NULL;
 
-	int ret = am_hal_mspi_initialize((cfg->base - REG_MSPI_BASEADDR) / (cfg->size * 4),
-					 &data->mspiHandle);
-	if (ret) {
-		return ret;
+	if(AM_HAL_STATUS_SUCCESS != am_hal_mspi_initialize((cfg->base - REG_MSPI_BASEADDR) / (cfg->size * 4),
+					 &pMspiHandle) )
+	{
+		// #TODO return value
+		return -1;
 	}
 
 	ret = cfg->pwr_func();
 
-	// ret = am_hal_mspi_configure(data->mspiHandle, &mspiCfg);
-	// if (ret) {
-	// 	return ret;
-	// }
 
-	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 
-	return ret;
+	// #TODO am_hal_mspi_power_control
+
+	if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_device_configure(pMspiHandle, &cfg->mspicfg) )
+	{
+		// #TODO return value
+		return -1 ;
+	}
+
+	if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_enable(pMspiHandle))
+    {
+        // am_util_stdio_printf("Error - Failed to enable MSPI.\n");
+		// #TODO return value
+        return -1;
+    }
+
+	ret = pinctrl_apply_state(cfg->pincfg, PINCTRL_STATE_DEFAULT);
+	if (ret < 0 && ret != -ENOENT) {
+		return ret;
+	}
+
+	data->mspiHandle = pMspiHandle;
+
+	return 0;
+
 }
 
 // #error "test"
@@ -244,8 +288,30 @@ static int mspi_ambiq_init(const struct device *dev)
 		SPI_CONTEXT_INIT_SYNC(mspi_ambiq_data##n, ctx)};                                   \
 	static const struct mspi_ambiq_config mspi_ambiq_config##n = {                             \
 		.base = DT_INST_REG_ADDR(n),                                                       \
-		.size = DT_INST_REG_SIZE(n),                                                       \
-		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.size = DT_INST_REG_SIZE(n),	\
+		.mspicfg  = { \
+			.eSpiMode             = AM_HAL_MSPI_SPI_MODE_0,	\
+			.eClockFreq           = AM_HAL_MSPI_CLK_8MHZ,	\
+			.ui8TurnAround        = 1,						\
+			.eAddrCfg             = AM_HAL_MSPI_ADDR_3_BYTE,		\
+			.eInstrCfg            = AM_HAL_MSPI_INSTR_1_BYTE,		\
+			.eDeviceConfig        = AM_HAL_MSPI_FLASH_SERIAL_CE0,	\
+			.bSendInstr           = true,		\
+			.bSendAddr            = false,		\
+			.bTurnaround          = false,		\
+			.ui8WriteLatency      = 0,			\
+			.bEnWriteLatency      = false,		\
+			.bEmulateDDR          = false,		\
+			.ui16DMATimeLimit     = 0,			\
+			.eDMABoundary         = AM_HAL_MSPI_BOUNDARY_NONE,	\
+			.ui32TCBSize          = 0,			\
+			.pTCB                 = NULL,		\
+			.scramblingStartAddr  = 0,			\
+			.scramblingEndAddr    = 0,			\
+			.ui8ReadInstr         = 0x0B,	\
+			.ui8WriteInstr        = 0x12,	\
+		},                                             \
+		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.pwr_func = pwr_on_ambiq_mspi_##n,                                                 \
 	};                                                                                         \
 	DEVICE_DT_INST_DEFINE(n, mspi_ambiq_init, NULL, &mspi_ambiq_data##n,                       \

@@ -8,3 +8,15 @@
 // &mspi0 {
 // 	status = "okay";
 // };
+
+&mspi0 {
+	status = "okay";
+};
+
+&mspi1 {
+	status = "disabled";
+};
+
+&mspi2 {
+	status = "disabled";
+};

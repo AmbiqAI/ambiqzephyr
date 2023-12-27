@@ -12,13 +12,15 @@
 #include <string.h>
 #include <zephyr/drivers/spi.h>
 
+#define TESE_MSPI DT_NODELABEL(mspi0)
 
-#define SPI0_NODE			DT_NODELABEL(mspi0)
-
-static const struct device *spi_dev = DEVICE_DT_GET(SPI0_NODE);
+#if DT_NODE_HAS_STATUS(TESE_MSPI, okay)
+static const struct device *spi_dev = DEVICE_DT_GET(TESE_MSPI);
+#else
+#error "Node is disabled"
+#endif
 
 struct spi_config config;
-
 int main(void)
 {
 	if (!device_is_ready(spi_dev)) {
@@ -30,7 +32,7 @@ int main(void)
 		.delay = 0u,
 	};
 
-	config.frequency = 1000000;
+	config.frequency = 48000000;
 	config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
 	config.slave = 0;
 	config.cs = cs_ctrl;
@@ -46,8 +48,8 @@ int main(void)
 		{.buf = rxdata, .len = datacount},
 	};
 
-	struct spi_buf_set tx_set = { .buffers = tx_buf, .count = 1 };
-	struct spi_buf_set rx_set = { .buffers = rx_buf, .count = 1 };
+	struct spi_buf_set tx_set = { .buffers = tx_buf, .count = 5 };
+	struct spi_buf_set rx_set = { .buffers = rx_buf, .count = 5 };
 
 	int ret = spi_transceive(spi_dev, &config, &tx_set, &rx_set);
 

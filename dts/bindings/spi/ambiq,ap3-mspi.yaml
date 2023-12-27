@@ -17,5 +17,29 @@ properties:
   ambiq,pwrcfg:
     required: true
 
+  # lines:
+  #   type: int
+  #   enum:
+  #     - 1
+  #     - 2
+  #     - 4
+  #     - 8
 
 
+
+  # ambiq,timing:
+  #   type: array
+  #   required: true
+  #   description: |
+  #   Expected fields, in order:
+  #   * turnaround
+  #   * writeLatency
+
+
+  # scrambling:
+  #   "#address-cells":
+  #   required: true
+  #   "#size-cells":
+  #   required: true
+
+  # dma,set:
