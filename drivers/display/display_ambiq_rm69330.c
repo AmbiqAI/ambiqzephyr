@@ -13,6 +13,7 @@
 #include <zephyr/pm/policy.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/drivers/pinctrl.h>
 
 #include <am_mcu_apollo.h>
 
@@ -21,6 +22,7 @@ LOG_MODULE_REGISTER(rm69330, CONFIG_DISPLAY_LOG_LEVEL);
 //todo: this need kconfig
 #define TCM_SIZE (1024)
 #define CMD_SEND_TIMEOUT (100000)
+#define FB_SEND_TIMEOUT_MS  (500)
 
 #define RM69330_MSPI_CMD_WRITE                   0x02
 #define RM69330_MSPI_PIXEL_WRITE_ADDR1           0x32    // address on single line
@@ -87,7 +89,7 @@ LOG_MODULE_REGISTER(rm69330, CONFIG_DISPLAY_LOG_LEVEL);
 const static am_hal_mspi_dev_config_t  QuadCE0DisplayMSPICfg =
 {
     .eSpiMode             = AM_HAL_MSPI_SPI_MODE_0,
-    .eClockFreq           = AM_HAL_MSPI_CLK_48MHZ,
+    .eClockFreq           = AM_HAL_MSPI_CLK_24MHZ,
     .ui8TurnAround        = 0,
     .eAddrCfg             = AM_HAL_MSPI_ADDR_3_BYTE,
     .eInstrCfg            = AM_HAL_MSPI_INSTR_1_BYTE,
@@ -137,12 +139,11 @@ static void rm69330_te_isr_handler(const struct device *gpio_dev,
 }
 
 static int
-rm69330_command_write(const struct device *dev,
+rm69330_command_read(const struct device *dev,
                       uint32_t ui32Instr,
                       uint8_t *pData,
                       uint32_t ui32NumBytes)
 {
-	const struct rm69330_config *config = dev->config;
 	struct rm69330_data *data = dev->data;
     am_hal_mspi_dev_config_t* pMspiConfig = &data->sMspiConfig;
     void* pMspiHandle = data->mspiHandle;
@@ -150,7 +151,80 @@ rm69330_command_write(const struct device *dev,
 
     am_hal_mspi_pio_transfer_t Transaction;
 
-    __ASSERT(ui32NumBytes <= 4);
+    __ASSERT_NO_MSG(ui32NumBytes <= 4);
+
+    uint32_t ui32CurrentMspiDeviceConfig = pMspiConfig->eDeviceConfig;
+    bool bNeedSwitch = (ui32CurrentMspiDeviceConfig > AM_HAL_MSPI_FLASH_SERIAL_CE1) ? true : false;
+
+    //
+    // Switch to Cmd configuration.
+    //
+    if ( bNeedSwitch )
+    {
+        uint32_t ui32CommandConfig = (ui32CurrentMspiDeviceConfig % 2) ? AM_HAL_MSPI_FLASH_SERIAL_CE1 : AM_HAL_MSPI_FLASH_SERIAL_CE0;
+        am_hal_mspi_control(pMspiHandle, AM_HAL_MSPI_REQ_DEVICE_CONFIG, &ui32CommandConfig);
+    }
+
+    uint32_t readFreq = AM_HAL_MSPI_CLK_8MHZ;
+    am_hal_mspi_control(pMspiHandle, AM_HAL_MSPI_REQ_CLOCK_CONFIG, &readFreq);
+
+    //
+    // Create the individual write transaction.
+    //
+    Transaction.ui32NumBytes       = ui32NumBytes;
+    Transaction.bScrambling        = false;
+    Transaction.eDirection         = AM_HAL_MSPI_RX;
+    Transaction.bSendAddr          = true;
+    Transaction.ui32DeviceAddr     = ui32Instr << 8;
+    Transaction.bSendInstr         = true;
+    Transaction.ui16DeviceInstr    = RM69330_MSPI_CMD_READ;
+    Transaction.bTurnaround        = false;
+    Transaction.bQuadCmd           = false;
+    Transaction.bDCX               = false;
+    Transaction.bEnWRLatency       = false;
+    Transaction.bContinue          = false;    // MSPI CONT is deprecated for Apollo3
+    Transaction.pui32Buffer        = (uint32_t*)pData;
+
+    //
+    // Execute the transaction over MSPI.
+    //
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_blocking_transfer(pMspiHandle, &Transaction,
+                                         CMD_SEND_TIMEOUT))
+    {
+        LOG_ERR("Failed to send command.\n");
+        ret = -1;
+    }
+
+    am_hal_mspi_control(pMspiHandle, AM_HAL_MSPI_REQ_CLOCK_CONFIG, &pMspiConfig->eClockFreq);
+
+    //
+    // Switch to Device configuration.
+    //
+    if ( bNeedSwitch )
+    {
+        //
+        // Re-Configure the MSPI for the requested operation mode.
+        //
+        am_hal_mspi_control(pMspiHandle, AM_HAL_MSPI_REQ_DEVICE_CONFIG, &ui32CurrentMspiDeviceConfig);
+    }
+
+    return ret;
+}
+
+static int
+rm69330_command_write(const struct device *dev,
+                      uint32_t ui32Instr,
+                      uint8_t *pData,
+                      uint32_t ui32NumBytes)
+{
+	struct rm69330_data *data = dev->data;
+    am_hal_mspi_dev_config_t* pMspiConfig = &data->sMspiConfig;
+    void* pMspiHandle = data->mspiHandle;
+	int ret = 0;
+
+    am_hal_mspi_pio_transfer_t Transaction;
+
+    __ASSERT_NO_MSG(ui32NumBytes <= 4);
 
     uint32_t ui32CurrentMspiDeviceConfig = pMspiConfig->eDeviceConfig;
     bool bNeedSwitch = (ui32CurrentMspiDeviceConfig > AM_HAL_MSPI_FLASH_SERIAL_CE1) ? true : false;
@@ -205,6 +279,14 @@ rm69330_command_write(const struct device *dev,
     return ret;
 }
 
+
+#define AM_BSP_GPIO_DSPL_RESET 11
+#define AM_BSP_GPIO_DSPL0_OLED_EN 49
+#define  AM_BSP_GPIO_DSPL0_OLED_PWER_EN 39
+#define AM_BSP_GPIO_DSPL0_VIO_EN 40
+#define AM_BSP_GPIO_DSPL0_DSPL_3V3_EN 31
+
+
 static int rm69330_init(const struct device *dev)
 {
 	const struct rm69330_config *config = dev->config;
@@ -217,10 +299,11 @@ static int rm69330_init(const struct device *dev)
     data->sMspiConfig = QuadCE0DisplayMSPICfg; //todo: got this from DT, NOT const variable
     data->sMspiConfig.ui32TCBSize = 1024; //TODO: This should ge got from kconfig
     data->sMspiConfig.pTCB = k_malloc(data->sMspiConfig.ui32TCBSize*4); //TODO: This memory block may need to be allocated from SSRAM, how to do this?
-    uint32_t ui32Module = 1; //todo: get this from DT
+    uint32_t ui32Module = 0; //todo: get this from DT
+    uint8_t ui8CMDBuf[4];
 
     /* Init MSPI instance */
-    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_initialize(ui32Module, &data->pMspiHandle))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_initialize(ui32Module, &data->mspiHandle))
     {
         LOG_ERR("Failed to initialize MSPI.\n");
         return -1;//TODO: SET A LINUX ERROR NUMBER
@@ -228,18 +311,18 @@ static int rm69330_init(const struct device *dev)
 
 
     //TODO: USE ZEPHYR POWER management 
-    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_power_control(data->pMspiHandle, AM_HAL_SYSCTRL_WAKE, false))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_power_control(data->mspiHandle, AM_HAL_SYSCTRL_WAKE, false))
     {
         LOG_ERR("Failed to power on MSPI.\n");
         return -1;
     }
 
-    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_device_configure(data->pMspiHandle, &data->sMspiConfig))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_device_configure(data->mspiHandle, &data->sMspiConfig))
     {
         LOG_ERR("Error - Failed to configure MSPI.\n");
         return -1;
     }
-    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_enable(data->pMspiHandle))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_enable(data->mspiHandle))
     {
         LOG_ERR("Error - Failed to enable MSPI.\n");
         return -1;
@@ -250,93 +333,121 @@ static int rm69330_init(const struct device *dev)
 		return ret;
 	}
 
-    am_hal_gpio_pinconfig(40, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_output_set(40);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL_RESET, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_output_set(AM_BSP_GPIO_DSPL_RESET);
 
-    am_hal_gpio_pinconfig(31, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_output_set(31);
+    // am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL_TE, g_AM_BSP_GPIO_DSPL_TE);
 
-    am_hal_gpio_pinconfig(39, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_output_clear(39);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL0_OLED_EN, g_AM_HAL_GPIO_INPUT);
 
-    gpio_pin_configure_dt(&config->bl_gpio, GPIO_OUTPUT_INACTIVE);
-    gpio_pin_set_dt(&config->bl_gpio, 1);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL0_OLED_PWER_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_output_clear(AM_BSP_GPIO_DSPL0_OLED_PWER_EN);
 
-    /* Display reset*/
-	if (config->reset_gpio.port != NULL) {
-		ret = gpio_pin_configure_dt(&config->reset_gpio, GPIO_OUTPUT_INACTIVE);
-		if (ret < 0) {
-			LOG_ERR("Could not configure reset GPIO (%d)", ret);
-			return ret;
-		}
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL0_VIO_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_output_set(AM_BSP_GPIO_DSPL0_VIO_EN);
 
-		/*
-		 * Power to the display has been enabled via the regulator fixed api during
-		 * regulator init. Per datasheet, we must wait at least 10ms before
-		 * starting reset sequence after power on.
-		 */
-		k_sleep(K_MSEC(10));
-		/* Start reset sequence */
-		ret = gpio_pin_set_dt(&config->reset_gpio, 0);
-		if (ret < 0) {
-			LOG_ERR("Could not pull reset low (%d)", ret);
-			return ret;
-		}
-		/* Per datasheet, reset low pulse width should be at least 10usec */
-		k_sleep(K_USEC(30));
-		gpio_pin_set_dt(&config->reset_gpio, 1);
-		if (ret < 0) {
-			LOG_ERR("Could not pull reset high (%d)", ret);
-			return ret;
-		}
-		/*
-		 * It is necessary to wait at least 120msec after releasing reset,
-		 * before sending additional commands. This delay can be 5msec
-		 * if we are certain the display module is in SLEEP IN state,
-		 * but this is not guaranteed (for example, with a warm reset)
-		 */
-		k_sleep(K_MSEC(150));
-	}
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_DSPL0_DSPL_3V3_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_output_set(AM_BSP_GPIO_DSPL0_DSPL_3V3_EN);
+
+    am_hal_gpio_output_clear(AM_BSP_GPIO_DSPL_RESET);
+    k_sleep(K_MSEC(20));
+    am_hal_gpio_output_set(AM_BSP_GPIO_DSPL_RESET);
+    k_sleep(K_MSEC(150));  //Delay 150ms
+
+    // am_hal_gpio_pinconfig(40, g_AM_HAL_GPIO_OUTPUT);
+    // am_hal_gpio_output_set(40);
+
+    // am_hal_gpio_pinconfig(31, g_AM_HAL_GPIO_OUTPUT);
+    // am_hal_gpio_output_set(31);
+
+    // am_hal_gpio_pinconfig(39, g_AM_HAL_GPIO_OUTPUT);
+    // am_hal_gpio_output_clear(39);
+
+    // // gpio_pin_configure_dt(&config->bl_gpio, GPIO_OUTPUT_INACTIVE);
+    // // gpio_pin_set_dt(&config->bl_gpio, 0);
+
+    // /* Display reset*/
+	// if (config->reset_gpio.port != NULL) {
+	// 	ret = gpio_pin_configure_dt(&config->reset_gpio, GPIO_OUTPUT_INACTIVE);
+	// 	if (ret < 0) {
+	// 		LOG_ERR("Could not configure reset GPIO (%d)", ret);
+	// 		return ret;
+	// 	}
+
+	// 	/*
+	// 	 * Power to the display has been enabled via the regulator fixed api during
+	// 	 * regulator init. Per datasheet, we must wait at least 10ms before
+	// 	 * starting reset sequence after power on.
+	// 	 */
+	// 	k_sleep(K_MSEC(10));
+	// 	/* Start reset sequence */
+	// 	ret = gpio_pin_set_dt(&config->reset_gpio, 0);
+	// 	if (ret < 0) {
+	// 		LOG_ERR("Could not pull reset low (%d)", ret);
+	// 		return ret;
+	// 	}
+	// 	/* Per datasheet, reset low pulse width should be at least 10usec */
+	// 	k_sleep(K_USEC(30));
+	// 	gpio_pin_set_dt(&config->reset_gpio, 1);
+	// 	if (ret < 0) {
+	// 		LOG_ERR("Could not pull reset high (%d)", ret);
+	// 		return ret;
+	// 	}
+	// 	/*
+	// 	 * It is necessary to wait at least 120msec after releasing reset,
+	// 	 * before sending additional commands. This delay can be 5msec
+	// 	 * if we are certain the display module is in SLEEP IN state,
+	// 	 * but this is not guaranteed (for example, with a warm reset)
+	// 	 */
+	// 	k_sleep(K_MSEC(150));
+	// }
 
 	/* Now, write initialization settings for display, running at 400x392 */
     ui8CMDBuf[0] = 0x00;      //switch to User Commands Sets(UCS = CMD1)
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_CMD_MODE, ui8CMDBuf, 1) != 0)  // set page CMD1
+    if ( rm69330_command_write(dev, RM69330_MSPI_CMD_MODE, ui8CMDBuf, 1) != 0)  // set page CMD1
     {
         return -1;
     }
 
     ui8CMDBuf[0] = RM69330_MSPI_SPI_WRAM;
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_SET_DSPI_MODE, ui8CMDBuf, 1)  != 0)  // spi ram enable default is mipi,Aaron modified
+    if ( rm69330_command_write(dev, RM69330_MSPI_SET_DSPI_MODE, ui8CMDBuf, 1)  != 0)  // spi ram enable default is mipi,Aaron modified
     {
         return -1;
     }
 
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_IDLE_MODE_OFF, NULL, 0)  != 0)  // idle mode off
+    if ( rm69330_command_write(dev, RM69330_MSPI_IDLE_MODE_OFF, NULL, 0)  != 0)  // idle mode off
     {
         return -1;
     }
 
     k_sleep(K_MSEC(120));
 
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_DISPLAY_OFF, NULL, 0)  != 0)  // display off
+    if ( rm69330_command_write(dev, RM69330_MSPI_DISPLAY_OFF, NULL, 0)  != 0)  // display off
     {
         return -1;
     }
 
     ui8CMDBuf[0] = RM69330_MSPI_SCAN_MODE_270;
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_SCAN_DIRECTION, ui8CMDBuf, 1)  != 0)  // scan direction to 0
+    if ( rm69330_command_write(dev, RM69330_MSPI_SCAN_DIRECTION, ui8CMDBuf, 1)  != 0)  // scan direction to 0
     {
         return -1;
     }
 
-    ui8CMDBuf[0] = RM69330_MSPI_COLOR_MODE_16BIT;
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_PIXEL_FORMAT, ui8CMDBuf, 1)  != 0)
+	if (data->pixel_format == PIXEL_FORMAT_RGB_888) {
+		ui8CMDBuf[0] = RM69330_MSPI_COLOR_MODE_24BIT;
+		data->bytes_per_pixel = 3;
+	} else if (data->pixel_format == PIXEL_FORMAT_RGB_565) {
+		ui8CMDBuf[0] = RM69330_MSPI_COLOR_MODE_16BIT;
+		data->bytes_per_pixel = 2;
+	}
+
+    if ( rm69330_command_write(dev, RM69330_MSPI_PIXEL_FORMAT, ui8CMDBuf, 1)  != 0)
     {
         return -1;
     }
 
     ui8CMDBuf[0] = 0x00;      // TE on , only V-blanking
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_TE_LINE_ON, ui8CMDBuf, 1)  != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_TE_LINE_ON, ui8CMDBuf, 1)  != 0)
     {
         return -1;
     }
@@ -344,14 +455,14 @@ static int rm69330_init(const struct device *dev)
     k_sleep(K_MSEC(10));
 
     ui8CMDBuf[0] = 0xff;      // write display brightness
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_WRITE_DISPLAY_BRIGHTNESS, ui8CMDBuf, 1)  != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_WRITE_DISPLAY_BRIGHTNESS, ui8CMDBuf, 1)  != 0)
     {
         return -1;
     }
 
     k_sleep(K_MSEC(10));
 
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_SLEEP_OUT, NULL, 0)  != 0)  // sleep out
+    if ( rm69330_command_write(dev, RM69330_MSPI_SLEEP_OUT, NULL, 0)  != 0)  // sleep out
     {
         return -1;
     }
@@ -367,25 +478,25 @@ static int rm69330_init(const struct device *dev)
     ui8CMDBuf[1] = (ui16ColumnStart % 256);
     ui8CMDBuf[2] = (ui16ColumnStart + ui16ColumnSize - 1) / 256;
     ui8CMDBuf[3] = (ui16ColumnStart + ui16ColumnSize - 1) % 256;
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_SET_COLUMN, ui8CMDBuf, 4) != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_SET_COLUMN, ui8CMDBuf, 4) != 0)
     {
         return -1;
     }
 
-    k_sleep(K_USEC(10));
+    k_sleep(K_MSEC(10));
 
     ui8CMDBuf[0] = (ui16RowStart / 256);
     ui8CMDBuf[1] = (ui16RowStart % 256);
     ui8CMDBuf[2] = (ui16RowStart + ui16RowSize -1) / 256;
     ui8CMDBuf[3] = (ui16RowStart + ui16RowSize -1) % 256;
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_SET_ROW, ui8CMDBuf, 4) != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_SET_ROW, ui8CMDBuf, 4) != 0)
     {
         return -1;
     }
 
     k_sleep(K_MSEC(200));
 
-    if ( rm69330_command_write(pHandle, RM69330_MSPI_NORMAL_MODE_ON, NULL, 0)  != 0)  // normal display on
+    if ( rm69330_command_write(dev, RM69330_MSPI_NORMAL_MODE_ON, NULL, 0)  != 0)  // normal display on
     {
         return -1;
     }
@@ -396,7 +507,7 @@ static int rm69330_init(const struct device *dev)
     ui8CMDBuf[0] = 0;
     ui8CMDBuf[1] = 0;
     ui8CMDBuf[2] = 0;
-    if (rm69330_command_read(pHandle, RM69330_MSPI_READ_ID, ui8CMDBuf, 3) != 0)
+    if (rm69330_command_read(dev, RM69330_MSPI_READ_ID, ui8CMDBuf, 3) != 0)
     {
         return -1;
     }
@@ -406,15 +517,31 @@ static int rm69330_init(const struct device *dev)
         LOG_ERR("RM69330 init failed!");
     }
 
+    ret = rm69330_command_write(dev, RM69330_MSPI_DISPLAY_OFF, NULL, 0);
+    if (ret < 0)
+    {
+        return ret;
+    }   
+
+    ret = rm69330_command_write(dev, RM69330_MSPI_DISPLAY_ON, NULL, 0);
+    if (ret < 0)
+    {
+        return ret;
+    }
+
+    k_sleep(K_MSEC(10));
+
+
+
     //
     // Enable MSPI interrupts.
     //
-    if (AM_HAL_STATUS_SUCCESS != ui32Statusam_hal_mspi_interrupt_clear(pMspiHandle, AM_HAL_MSPI_INT_CQUPD | AM_HAL_MSPI_INT_ERR ))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_interrupt_clear(data->mspiHandle, AM_HAL_MSPI_INT_CQUPD | AM_HAL_MSPI_INT_ERR ))
     {
         return -1;
     }
 
-    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_interrupt_enable(pMspiHandle, AM_HAL_MSPI_INT_CQUPD | AM_HAL_MSPI_INT_ERR ))
+    if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_interrupt_enable(data->mspiHandle, AM_HAL_MSPI_INT_CQUPD | AM_HAL_MSPI_INT_ERR ))
     {
         return -1;
     }
@@ -499,11 +626,11 @@ rm69330_write_fb(const struct device *dev,
     }
 
     Transaction.ui32DeviceAddress         = RM69330_MSPI_MEM_WRITE_CONTINUE << 8;
-    for (int32_t block = 0; block < (ui32NumBytes / AM_HAL_MSPI_MAX_TRANS_SIZE); block++)
+    ui32BytesLeft -= Transaction.ui32TransferCount;
+    while( ui32BytesLeft )
     {
-        Transaction.ui32SRAMAddress += Transaction.ui32TransferCount;
-        ui32BytesLeft -=  Transaction.ui32TransferCount;
-        Transaction.ui32TransferCount         = (ui32BytesLeft <= AM_HAL_MSPI_MAX_TRANS_SIZE) ? ui32BytesLeft : AM_HAL_MSPI_MAX_TRANS_SIZE;
+        Transaction.ui32SRAMAddress      += Transaction.ui32TransferCount;
+        Transaction.ui32TransferCount     = (ui32BytesLeft <= AM_HAL_MSPI_MAX_TRANS_SIZE) ? ui32BytesLeft : AM_HAL_MSPI_MAX_TRANS_SIZE;
         if (am_hal_mspi_nonblocking_transfer(data->mspiHandle,
                                              &Transaction,
                                              AM_HAL_MSPI_TRANS_DMA,
@@ -512,6 +639,8 @@ rm69330_write_fb(const struct device *dev,
         {
             return -1;
         }
+
+        ui32BytesLeft -= Transaction.ui32TransferCount;
     }
 
     return 0;
@@ -548,7 +677,7 @@ static int rm69330_write(const struct device *dev, const uint16_t x,
 	sys_put_be16(start, &param[0]);
 	/* Second two bytes are ending X coordinate */
 	sys_put_be16(end, &param[2]);
-	ret = rm69330_command_write(data->mspiHandle, RM69330_MSPI_SET_COLUMN, param, 4);
+	ret = rm69330_command_write(dev, RM69330_MSPI_SET_COLUMN, param, 4);
 	if (ret < 0) {
 		return ret;
 	}
@@ -560,7 +689,7 @@ static int rm69330_write(const struct device *dev, const uint16_t x,
 	sys_put_be16(start, &param[0]);
 	/* Second two bytes are ending X coordinate */
 	sys_put_be16(end, &param[2]);
-	ret = rm69330_command_write(pHandle, RM69330_MSPI_SET_ROW, param, 4);
+	ret = rm69330_command_write(dev, RM69330_MSPI_SET_ROW, param, 4);
 	if (ret < 0) {
 		return ret;
 	}
@@ -570,16 +699,16 @@ static int rm69330_write(const struct device *dev, const uint16_t x,
 	 * wait until the display controller issues an interrupt (which will
 	 * give to the TE semaphore) before sending the frame
 	 */
-	if (config->te_gpio.port != NULL) {
-		/* Block sleep state until next TE interrupt so we can send
-		 * frame during that interval
-		 */
-		pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE,
-					 PM_ALL_SUBSTATES);
-		k_sem_take(&data->te_sem, K_FOREVER);
-		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE,
-					 PM_ALL_SUBSTATES);
-	}
+	// if (config->te_gpio.port != NULL) {
+	// 	/* Block sleep state until next TE interrupt so we can send
+	// 	 * frame during that interval
+	// 	 */
+	// 	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE,
+	// 				 PM_ALL_SUBSTATES);
+	// 	k_sem_take(&data->te_sem, K_FOREVER);
+	// 	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE,
+	// 				 PM_ALL_SUBSTATES);
+	// }
 	src = buf;
 	first_cmd = true;
 
@@ -611,7 +740,7 @@ static int rm69330_write(const struct device *dev, const uint16_t x,
 
     if(ret == 0)
     {
-        k_sem_take(&data->fb_sem);
+        k_sem_take(&data->fb_sem, K_MSEC(FB_SEND_TIMEOUT_MS));
     }
 
 	return ret;
@@ -628,18 +757,7 @@ static void rm69330_get_capabilities(const struct device *dev,
 	capabilities->y_resolution = config->panel_height;
 	capabilities->supported_pixel_formats = PIXEL_FORMAT_RGB_565 |
 						PIXEL_FORMAT_RGB_888;
-	switch (data->pixel_format) {
-	case MIPI_DSI_PIXFMT_RGB565:
-		capabilities->current_pixel_format = PIXEL_FORMAT_RGB_565;
-		break;
-	case MIPI_DSI_PIXFMT_RGB888:
-		capabilities->current_pixel_format = PIXEL_FORMAT_RGB_888;
-		break;
-	default:
-		LOG_WRN("Unsupported display format");
-		/* Other display formats not implemented */
-		break;
-	}
+	capabilities->current_pixel_format = data->pixel_format;
 	capabilities->current_orientation = DISPLAY_ORIENTATION_ROTATED_90;
 }
 
@@ -647,12 +765,12 @@ static int rm69330_blanking_on(const struct device *dev)
 {
 	const struct rm69330_data *data = dev->data;
 
-    if ( rm69330_command_write(data->mspiHandle, RM69330_MSPI_DISPLAY_OFF, NULL, 0) != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_DISPLAY_OFF, NULL, 0) != 0)
     {
         return -1;
     }
 
-    if ( rm69330_command_write(data->mspiHandle, RM69330_MSPI_SLEEP_IN, NULL, 0) !=0 )
+    if ( rm69330_command_write(dev, RM69330_MSPI_SLEEP_IN, NULL, 0) !=0 )
     {
         return -1;
     }
@@ -664,12 +782,12 @@ static int rm69330_blanking_off(const struct device *dev)
 {
 	const struct rm69330_data *data = dev->data;
 
-    if ( rm69330_command_write(data->mspiHandle, RM69330_MSPI_SLEEP_OUT, NULL, 0) != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_SLEEP_OUT, NULL, 0) != 0)
     {
         return -1;
     }
 
-    if (rm69330_command_write(data->mspiHandle, RM69330_MSPI_DISPLAY_ON, NULL, 0) != 0)
+    if (rm69330_command_write(dev, RM69330_MSPI_DISPLAY_ON, NULL, 0) != 0)
     {
         return -1;
     }
@@ -686,24 +804,24 @@ static int rm69330_set_pixel_format(const struct device *dev,
 
 	switch (pixel_format) {
 	case PIXEL_FORMAT_RGB_565:
-		data->pixel_format = MIPI_DSI_PIXFMT_RGB565;
+		data->pixel_format = PIXEL_FORMAT_RGB_565;
 		return 0;
 	case PIXEL_FORMAT_RGB_888:
-		data->pixel_format = MIPI_DSI_PIXFMT_RGB888;
+		data->pixel_format = PIXEL_FORMAT_RGB_888;
 		return 0;
 	default:
 		/* Other display formats not implemented */
 		return -ENOTSUP;
 	}
-	if (data->pixel_format == MIPI_DSI_PIXFMT_RGB888) {
+	if (data->pixel_format == PIXEL_FORMAT_RGB_888) {
 		param = RM69330_MSPI_COLOR_MODE_24BIT;
 		data->bytes_per_pixel = 3;
-	} else if (data->pixel_format == MIPI_DSI_PIXFMT_RGB565) {
+	} else if (data->pixel_format == PIXEL_FORMAT_RGB_565) {
 		param = RM69330_MSPI_COLOR_MODE_16BIT;
 		data->bytes_per_pixel = 2;
 	}
 
-    if ( rm69330_command_write(data->mspiHandle, RM69330_MSPI_PIXEL_FORMAT, &param, 1)  != 0)
+    if ( rm69330_command_write(dev, RM69330_MSPI_PIXEL_FORMAT, &param, 1)  != 0)
     {
         return -1;
     }
@@ -757,9 +875,9 @@ static const struct display_driver_api rm69330_api = {
 };
 
 #define RM69330_PANEL(id)							\
-    PINCTRL_DT_INST_DEFINE(i); \
+    PINCTRL_DT_INST_DEFINE(id); \
 	static const struct rm69330_config rm69330_config_##id = {		\
-        .pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                      \
+        .pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(id),                      \
 		.reset_gpio = GPIO_DT_SPEC_INST_GET_OR(id, reset_gpios, {0}),	\
 		.te_gpio = GPIO_DT_SPEC_INST_GET_OR(id, te_gpios, {0}),		\
         .bl_gpio = GPIO_DT_SPEC_INST_GET_OR(id, bl_gpios, {0}),		\

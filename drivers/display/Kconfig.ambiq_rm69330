@@ -5,6 +5,7 @@ config AMBIQ_RM69330
 	bool "AMBIQ RM69330 display driver"
 	default y
 	select AMBIQ_HAL
+	select AMBIQ_HAL_USE_MSPI
 	depends on DT_HAS_AMBIQ_RM69330_ENABLED
 	help
 	  Enable driver for RM69330 display driver.

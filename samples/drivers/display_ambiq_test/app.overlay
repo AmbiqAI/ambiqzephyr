@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+ #include <zephyr/dt-bindings/display/panel.h>
 
 / {
 	chosen {
@@ -11,12 +12,12 @@
 
 	mspi_display: ambiq_rm69330 {
 		compatible = "ambiq,rm69330";
-		height = <100>;
-		width = <100>;
-		reset-gpios = <&gpio0_31 11 GPIO_ACTIVE_LOW>;
-		bl-gpios = <&gpio32_63 49 GPIO_ACTIVE_LOW>;
-		te-gpios = <&gpio32_63 38 GPIO_ACTIVE_LOW>;
-		pixel-format = MIPI_DSI_PIXFMT_RGB888;
+		height = <360>;
+		width = <360>;
+		reset-gpios = <&gpio0_31 11 GPIO_ACTIVE_HIGH>;
+		bl-gpios = <&gpio32_63 49 GPIO_ACTIVE_HIGH>;
+		te-gpios = <&gpio32_63 38 GPIO_ACTIVE_HIGH>;
+		pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
 		pinctrl-0 = <&mspi0_default>;
 		pinctrl-names = "default";
 		status = "okay";

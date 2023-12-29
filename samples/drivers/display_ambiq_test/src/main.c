@@ -188,6 +188,22 @@ int main(void)
 	LOG_INF("Display sample for %s", display_dev->name);
 	display_get_capabilities(display_dev, &capabilities);
 
+	buf_size = 50 * 50 * 3;
+	buf = k_malloc(buf_size);	
+
+	(void)memset(buf, 0xFFu, buf_size);
+
+	buf_desc.buf_size = buf_size;
+	buf_desc.pitch = 50;
+	buf_desc.width = 50;
+	buf_desc.height = 50;
+
+	display_write(display_dev, 100, 100, &buf_desc, buf);
+
+
+
+
+
 	if (capabilities.screen_info & SCREEN_INFO_MONO_VTILED) {
 		rect_w = 16;
 		rect_h = 8;
@@ -255,6 +271,7 @@ int main(void)
 		return 0;
 #endif
 	}
+
 
 	(void)memset(buf, 0xFFu, buf_size);
 
