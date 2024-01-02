@@ -11,6 +11,10 @@ compatible: "ambiq,rm69330"
 include: [display-controller.yaml, pinctrl-device.yaml]
 
 properties:
+
+  interrupts:
+    required: true
+
   reset-gpios:
     type: phandle-array
     description: |

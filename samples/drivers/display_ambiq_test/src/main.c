@@ -201,7 +201,7 @@ int main(void)
 	display_write(display_dev, 100, 100, &buf_desc, buf);
 
 
-
+	k_free(buf);
 
 
 	if (capabilities.screen_info & SCREEN_INFO_MONO_VTILED) {

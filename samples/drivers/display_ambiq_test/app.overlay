@@ -14,6 +14,8 @@
 		compatible = "ambiq,rm69330";
 		height = <360>;
 		width = <360>;
+		interrupt-parent = <&nvic>;
+		interrupts = <20 0>;
 		reset-gpios = <&gpio0_31 11 GPIO_ACTIVE_HIGH>;
 		bl-gpios = <&gpio32_63 49 GPIO_ACTIVE_HIGH>;
 		te-gpios = <&gpio32_63 38 GPIO_ACTIVE_HIGH>;

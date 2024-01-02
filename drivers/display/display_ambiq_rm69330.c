@@ -279,6 +279,25 @@ rm69330_command_write(const struct device *dev,
     return ret;
 }
 
+static void
+rm69330_transfer_complete(void *pCallbackCtxt, uint32_t transactionStatus)
+{
+    struct k_sem* pCompleteSem = (struct k_sem*)pCallbackCtxt;
+    k_sem_give(pCompleteSem);
+}
+
+static void display_mspi_isr(const struct device *dev)
+{
+    uint32_t      ui32Status;
+    struct rm69330_data *data = dev->data;
+
+    am_hal_mspi_interrupt_status_get(data->mspiHandle, &ui32Status, false);
+
+    am_hal_mspi_interrupt_clear(data->mspiHandle, ui32Status);
+
+    am_hal_mspi_interrupt_service(data->mspiHandle, ui32Status);
+}
+
 
 #define AM_BSP_GPIO_DSPL_RESET 11
 #define AM_BSP_GPIO_DSPL0_OLED_EN 49
@@ -546,6 +565,10 @@ static int rm69330_init(const struct device *dev)
         return -1;
     }
 
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority),	 \
+			display_mspi_isr, DEVICE_DT_INST_GET(0), 0); \
+	irq_enable(DT_INST_IRQN(0));
+
 	if (config->te_gpio.port != NULL) {
 		/* Setup TE pin */
 		ret = gpio_pin_configure_dt(&config->te_gpio, GPIO_INPUT);
@@ -577,12 +600,7 @@ static int rm69330_init(const struct device *dev)
 
 }
 
-static void
-rm69330_transfer_complete(void *pCallbackCtxt, uint32_t transactionStatus)
-{
-    struct k_sem* pCompleteSem = (struct k_sem*)pCallbackCtxt;
-    k_sem_give(pCompleteSem);
-}
+
 
 //*****************************************************************************
 //
