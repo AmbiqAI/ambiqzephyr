@@ -23,6 +23,8 @@ static void pinctrl_configure_pin(const pinctrl_soc_pin_t *pin)
 							  : AM_HAL_GPIO_PIN_OUTCFG_DISABLE;
 	pin_config.eDriveStrength = pin->drive_strength;
 	pin_config.uNCE = pin->iom_nce;
+	pin_config.bIomMSPIn = pin->iom_mspi;
+	pin_config.uIOMnum = pin->iom_num;
 
 	if (pin->bias_pull_up) {
 		pin_config.ePullup = pin->ambiq_pull_up_ohms + AM_HAL_GPIO_PIN_PULLUP_1_5K;

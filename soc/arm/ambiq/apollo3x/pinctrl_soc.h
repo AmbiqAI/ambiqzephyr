@@ -13,10 +13,10 @@
  * @brief Type to hold a pin's pinctrl configuration.
  */
 struct apollo3_pinctrl_soc_pin {
-	/** Pin number 0..128 */
+	/** Pin number 0..74 */
 	uint32_t pin_num : 7;
 	/** Alternative function (UART, SPI, etc.) */
-	uint32_t alt_func : 4;
+	uint32_t alt_func : 3;
 	/** Enable the pin as an input */
 	uint32_t input_enable : 1;
 	/** Drive strength, relative to full-driver strength */
@@ -34,7 +34,11 @@ struct apollo3_pinctrl_soc_pin {
 	/** pullup resistor value */
 	uint32_t ambiq_pull_up_ohms : 3;
 	/** IOM nCE module select */
-	uint32_t iom_nce : 6;
+	uint32_t iom_nce : 2;
+	/** IOM or MSPI */
+	uint32_t iom_mspi : 1;
+	/** IOM/MSPI instance number */
+	uint32_t iom_num : 3;
 };
 
 typedef struct apollo3_pinctrl_soc_pin pinctrl_soc_pin_t;
@@ -59,6 +63,8 @@ typedef struct apollo3_pinctrl_soc_pin pinctrl_soc_pin_t;
 		DT_PROP(node_id, bias_pull_down),				\
 		DT_ENUM_IDX(node_id, ambiq_pull_up_ohms),			\
 		DT_PROP(node_id, ambiq_iom_nce_module),				\
+		DT_PROP(node_id, ambiq_iom_mspi),                   \
+		DT_PROP(node_id, ambiq_iom_num),                    \
 	},
 
 /**

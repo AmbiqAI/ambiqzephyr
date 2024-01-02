@@ -72,7 +72,9 @@
 		group2 {
 			pinmux = <NCE11_P11>;
 			drive-push-pull;
+			ambiq,iom-mspi = <1>;
 			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <0>;
 		};
 	};
 	spi1_default: spi1_default {
@@ -82,7 +84,9 @@
 		group2 {
 			pinmux = <NCE34_P34>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <4>;
+			ambiq,iom-mspi = <1>;
+			ambiq,iom-nce-module = <1>;
+			ambiq,iom-num = <1>;
 		};
 	};
 	spi2_default: spi2_default {
@@ -92,7 +96,9 @@
 		group2 {
 			pinmux = <NCE15_P15>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <8>;
+			ambiq,iom-mspi = <1>;
+			ambiq,iom-nce-module = <3>;
+			ambiq,iom-num = <2>;
 		};
 	};
 	spi3_default: spi3_default {
@@ -102,7 +108,9 @@
 		group2 {
 			pinmux = <NCE29_P29>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <12>;
+			ambiq,iom-mspi = <1>;
+			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <3>;
 		};
 	};
 	spi4_default: spi4_default {
@@ -112,7 +120,9 @@
 		group2 {
 			pinmux = <NCE13_P13>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <16>;
+			ambiq,iom-mspi = <1>;
+			ambiq,iom-nce-module = <1>;
+			ambiq,iom-num = <4>;
 		};
 	};
 	spi5_default: spi5_default {
@@ -122,7 +132,9 @@
 		group2 {
 			pinmux = <NCE16_P16>;
 			drive-push-pull;
-			ambiq,iom-nce-module = <20>;
+			ambiq,iom-mspi = <1>;
+			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <5>;
 		};
 	};
 
@@ -138,7 +150,9 @@
 			pinmux = <NCE37_P37>;
 			drive-push-pull;
 			drive-strength = "0.5";
-			ambiq,iom-nce-module = <24>;
+			ambiq,iom-mspi = <0>;
+			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <0>;
 		};
 	};
 	mspi1_default: mspi1_default{
@@ -157,7 +171,9 @@
 			pinmux = <NCE50_P50>;
 			drive-push-pull;
 			drive-strength = "0.5";
-			ambiq,iom-nce-module = <28>;
+			ambiq,iom-mspi = <0>;
+			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <1>;
 		};
 	};
 	mspi2_default: mspi2_default{
@@ -172,7 +188,9 @@
 			pinmux = <NCE63_P63>;
 			drive-push-pull;
 			drive-strength = "0.5";
-			ambiq,iom-nce-module = <32>;
+			ambiq,iom-mspi = <0>;
+			ambiq,iom-nce-module = <0>;
+			ambiq,iom-num = <2>;
 		};
 	};
 };
