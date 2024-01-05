@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2022 STMicroelectronics
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&mspi0 {
+	compatible = "ambiq,mspi";
+	status = "okay";
+};
+
+&mspi1 {
+	status = "disabled";
+};
+
+&mspi2 {
+	status = "disabled";
+};
