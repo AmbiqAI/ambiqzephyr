@@ -4,8 +4,8 @@
 description: |
     Ambiq Apollo3 GPIO provides the GPIO pin mapping for GPIO child nodes.
 
-    The Ambiq Apollo3x soc designs a single GPIO port with 74 pins.
-    It uses 74 continuous 32-bit registers to configure the GPIO pins.
+    The Ambiq Apollo3/3p soc designs a single GPIO port with 50/74 pins.
+    It uses 50/74 continuous 32-bit registers to configure the GPIO pins.
     This binding provides a pin mapping to solve the limitation of the maximum
     32 pins handling in GPIO driver API.
 

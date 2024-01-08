@@ -10,4 +10,7 @@ choice
 config SOC_APOLLO3P_BLUE
 	bool "Apollo3 Blue Plus"
 
+config SOC_APOLLO3_BLUE
+	bool "Apollo3 Blue"
+
 endchoice
