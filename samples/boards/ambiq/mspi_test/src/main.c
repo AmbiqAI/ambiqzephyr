@@ -52,15 +52,6 @@ int main(void)
 		printf("SPI 0 device not ready!\n");
 		return -1;
 	}
-	// struct spi_cs_control cs_ctrl = (struct spi_cs_control){
-	// 	// .gpio = GPIO_DT_SPEC_GET(SPIBB_NODE, cs_gpios),
-	// 	.delay = 0u,
-	// };
-
-	// config.frequency = 48000000;
-	// config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
-	// config.slave = 0;
-	// config.cs = cs_ctrl;
 
 	#define DATA_SIZE	8
 	uint8_t buff[DATA_SIZE] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
@@ -88,5 +79,18 @@ int main(void)
 	       buff[0], buff[1], buff[2], buff[3], buff[4]);
 	// printf(" rx (i)  : %02x %02x %02x %02x %02x\n",
 	//        rxdata[0], rxdata[1], rxdata[2], rxdata[3], rxdata[4]);
+
+	rx_set.buffers = rx_buf;
+	rx_set .count = 1;
+	ret = spi_transceive(spi_dev, &spi_cfg_single, &tx_set, &rx_set);
+
+	tx_set.buffers = tx_buf;
+	tx_set .count = 1;
+
+	ret = spi_transceive(spi_dev, &spi_cfg_single, &tx_set, NULL);
+
+	ret = spi_transceive(spi_dev, &spi_cfg_dual, &tx_set, NULL);
+
+	ret = spi_transceive(spi_dev, &spi_cfg_quad, &tx_set, NULL);
 	return 0;
 }
