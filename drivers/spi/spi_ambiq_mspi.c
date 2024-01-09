@@ -26,10 +26,6 @@ LOG_MODULE_REGISTER(mspi_ambiq);
 
 typedef int (*ambiq_mspi_pwr_func_t)(void);
 
-#if (CONFIG_DMA_BUFFER_SIZE <= 0)
-#define CONFIG_DMA_BUFFER_SIZE 4096
-#endif /* CONFIG_DMA_BUFFER_SIZE */
-
 struct mspi_ambiq_config {
 	uint32_t base;
 	int size;
@@ -44,7 +40,7 @@ struct mspi_ambiq_config {
 struct mspi_ambiq_data {
 	struct spi_context 		ctx;
 	void 					*mspiHandle;
-	uint32_t 				pDMATCBBuffer[4096];
+	uint32_t 				*pDMATCBBuffer;
 
 };
 
@@ -205,10 +201,8 @@ static int mspi_config(const struct device *dev, const struct spi_config *config
 		return -ENOTSUP;
 	}
 
-	// mspicfg_tmp.pTCB = data->pDMATCBBuffer;
-	// mspicfg_tmp.ui32TCBSize = CONFIG_DMA_BUFFER_SIZE / 4;
 	mspicfg_tmp.pTCB = data->pDMATCBBuffer;
-	mspicfg_tmp.ui32TCBSize = (sizeof(data->pDMATCBBuffer)/sizeof(uint32_t));
+	mspicfg_tmp.ui32TCBSize = CONFIG_MSPI_DMA_TCB_BUFFER_SIZE;
 
 	ret = am_hal_mspi_disable(data->mspiHandle);
 	if (ret) {
@@ -311,11 +305,12 @@ done:
 static int mspi_ambiq_release(const struct device *dev, const struct spi_config *config)
 {
 	const struct mspi_ambiq_config *cfg = dev->config;
+	struct mspi_ambiq_data *data = dev->data;
 
+	k_free((void*)data->pDMATCBBuffer);
 	if (sys_read32(cfg->base) & MSPI_BUSY) {
 		return -EBUSY;
 	}
-
 	return 0;
 }
 
@@ -362,13 +357,12 @@ static int mspi_ambiq_init(const struct device *dev)
 	}
 
 	cfg->irq_config_func();
-#if 0
-	buf = k_malloc(CONFIG_DMA_BUFFER_SIZE);
+
+	buf = k_malloc(CONFIG_MSPI_DMA_TCB_BUFFER_SIZE * 4);
 	if (buf == NULL) {
 		return -ENOMEM;
 	}
 	data->pDMATCBBuffer = (uint32_t*)buf;
-#endif
 
     if (AM_HAL_STATUS_SUCCESS != am_hal_mspi_interrupt_clear(data->mspiHandle,	\
 											 AM_HAL_MSPI_INT_CQUPD |AM_HAL_MSPI_INT_ERR)) {
