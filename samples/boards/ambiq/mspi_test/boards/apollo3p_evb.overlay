@@ -7,6 +7,8 @@
 &mspi0 {
 	compatible = "ambiq,mspi";
 	status = "okay";
+	interrupt-parent = <&nvic>;
+	interrupts = <20 0>;
 	cs-gpios = <&gpio32_63 5 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
 };
 
