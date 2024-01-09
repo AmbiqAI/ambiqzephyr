@@ -75,17 +75,24 @@ static am_hal_mspi_dev_config_t  MspiCfgDefault =
     .ui8WriteInstr        = 0,
 };
 
+static void
+pfnMSPI_Callback(void *pCallbackCtxt, uint32_t status)
+{
+    // Set the DMA complete flag.
+	const struct device *dev = pCallbackCtxt;
+	struct mspi_ambiq_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
 
+	spi_context_complete(ctx, dev, 0);
+}
 
-static void mspi_isr(const struct device *dev)
+static void mspi_ambiq_isr(const struct device *dev)
 {
     uint32_t      ui32Status;
 	struct mspi_ambiq_data *data = dev->data;
 
     am_hal_mspi_interrupt_status_get(data->mspiHandle, &ui32Status, false);
-
     am_hal_mspi_interrupt_clear(data->mspiHandle, ui32Status);
-
     am_hal_mspi_interrupt_service(data->mspiHandle, ui32Status);
 }
 
@@ -219,6 +226,7 @@ static int mspi_config(const struct device *dev, const struct spi_config *config
 }
 
 
+
 static int mspi_ambiq_xfer(const struct device *dev, const struct spi_config *config)
 {
 	const struct mspi_ambiq_config *cfg = dev->config;
@@ -238,16 +246,14 @@ static int mspi_ambiq_xfer(const struct device *dev, const struct spi_config *co
 		Transaction.eDirection = AM_HAL_MSPI_RX;
 		Transaction.ui32SRAMAddress = (uint32_t)ctx->rx_buf;
 		Transaction.ui32TransferCount = ctx->rx_len;
-		ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, NULL,NULL);
-
+		ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA,  pfnMSPI_Callback,(void *)dev);
 	} else if (ctx->rx_len == 0) {
 		/* tx only, nothing to rx */
 		/* Set the transfer direction to TX (Write) */
 		Transaction.eDirection = AM_HAL_MSPI_TX;
 		Transaction.ui32SRAMAddress = (uint32_t)ctx->tx_buf;
 		Transaction.ui32TransferCount = ctx->tx_len;
-		ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, NULL,NULL);
-
+		ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, pfnMSPI_Callback,(void *)dev);
 	}
 	else {
 		/* Breaks the data into two transfers, keeps the chip select active between the two transfers,
@@ -268,10 +274,8 @@ static int mspi_ambiq_xfer(const struct device *dev, const struct spi_config *co
 		ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, NULL,NULL);
 		gpio_pin_configure_dt(&cfg->cs_gpio, GPIO_OUTPUT_ACTIVE);
 		ret = pinctrl_apply_state(cfg->pincfg, PINCTRL_STATE_DEFAULT);
+		spi_context_complete(ctx, dev, 0);
 	}
-
-	spi_context_complete(ctx, dev, 0);
-
 	return ret;
 }
 
@@ -396,11 +400,11 @@ static int mspi_ambiq_init(const struct device *dev)
 		k_busy_wait(PWRCTRL_MAX_WAIT_US);                                                 	\
 		return 0;                                                                          	\
 	} ;																						\
-	static void mspi_irq_configure_##n(void)												\
+	static void mspi_irq_config_func_##n(void)												\
 	{																						\
 		IRQ_CONNECT(DT_INST_IRQN(n),														\
 				DT_INST_IRQ(n, priority),													\
-				mspi_isr,																	\
+				mspi_ambiq_isr,																	\
 				DEVICE_DT_INST_GET(n), 0);													\
 		irq_enable(DT_INST_IRQN(n));														\
 	};																						\
@@ -413,7 +417,7 @@ static int mspi_ambiq_init(const struct device *dev)
 		.size = DT_INST_REG_SIZE(n),														\
 		.chip_sel = DT_INST_PROP_OR(n, chip_select, 0),										\
 		.cs_gpio = GPIO_DT_SPEC_INST_GET_BY_IDX(n, cs_gpios, 0),							\
-		.irq_config_func = mspi_irq_configure_##n,											\
+		.irq_config_func = mspi_irq_config_func_##n,											\
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),										\
 		.pwr_func = pwr_on_ambiq_mspi_##n,													\
 	};																						\
