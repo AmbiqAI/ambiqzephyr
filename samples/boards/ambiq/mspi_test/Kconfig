@@ -1,0 +1,14 @@
+# Private config options for mspi sample app
+
+# Copyright 2022 Ambiq
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Ambiq MSPI sample application"
+
+config MSPI_DMA_TCB_BUFFER_SIZE
+	int "DMA Transfer Control Buffer size in words."
+	default 1024
+	help
+	  DMA Transfer Control Buffer size in words
+
+source "Kconfig.zephyr"
