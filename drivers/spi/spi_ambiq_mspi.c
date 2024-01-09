@@ -231,14 +231,16 @@ static int mspi_ambiq_xfer(const struct device *dev, const struct spi_config *co
         Transaction.eDirection = AM_HAL_MSPI_RX;
         Transaction.ui32SRAMAddress = (uint32_t)ctx->rx_buf;
         Transaction.ui32TransferCount = ctx->rx_len;
-        ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA,  pfnMSPI_Callback,(void *)dev);
+        am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA,  pfnMSPI_Callback,(void *)dev);
+        ret = spi_context_wait_for_completion(ctx);
     } else if (ctx->rx_len == 0) {
         /* tx only, nothing to rx */
         /* Set the transfer direction to TX (Write) */
         Transaction.eDirection = AM_HAL_MSPI_TX;
         Transaction.ui32SRAMAddress = (uint32_t)ctx->tx_buf;
         Transaction.ui32TransferCount = ctx->tx_len;
-        ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, pfnMSPI_Callback,(void *)dev);
+        am_hal_mspi_nonblocking_transfer(data->mspiHandle, &Transaction, AM_HAL_MSPI_TRANS_DMA, pfnMSPI_Callback,(void *)dev);
+        ret = spi_context_wait_for_completion(ctx);
     }
     else {
         /* Breaks the data into two transfers, keeps the chip select active between the two transfers,
