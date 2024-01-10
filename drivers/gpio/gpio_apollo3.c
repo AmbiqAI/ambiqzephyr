@@ -270,15 +270,21 @@ static void ambiq_gpio_isr(const struct device *dev)
 {
 	struct ambiq_gpio_data *const data = dev->data;
 
-    AM_HAL_GPIO_MASKCREATE(GpioIntStatusMask);
-    am_hal_gpio_interrupt_status_get(false, pGpioIntStatusMask);
-    am_hal_gpio_interrupt_clear(pGpioIntStatusMask);
-
+#if defined(CONFIG_SOC_APOLLO3_BLUE)
+	uint64_t ui64Status;
+	am_hal_gpio_interrupt_status_get(false, &ui64Status);
+	am_hal_gpio_interrupt_clear(ui64Status);
+	gpio_fire_callbacks(&data->cb, dev, (uint32_t)ui64Status);
+#elif defined(CONFIG_SOC_APOLLO3P_BLUE)
+	AM_HAL_GPIO_MASKCREATE(GpioIntStatusMask);
+	am_hal_gpio_interrupt_status_get(false, pGpioIntStatusMask);
+	am_hal_gpio_interrupt_clear(pGpioIntStatusMask);
 	gpio_fire_callbacks(&data->cb, dev, *(uint32_t*)pGpioIntStatusMask);
+#endif
 }
 
 static int ambiq_gpio_pin_interrupt_configure(const struct device *dev, gpio_pin_t pin,
-					      enum gpio_int_mode mode, enum gpio_int_trig trig)
+							enum gpio_int_mode mode, enum gpio_int_trig trig)
 {
 	const struct ambiq_gpio_config *const dev_cfg = dev->config;
 	struct ambiq_gpio_data *const data = dev->data;
@@ -295,9 +301,14 @@ static int ambiq_gpio_pin_interrupt_configure(const struct device *dev, gpio_pin
 
 		k_spinlock_key_t key = k_spin_lock(&data->lock);
 
-        AM_HAL_GPIO_MASKCREATE(GpioIntMask);
-        ret = am_hal_gpio_interrupt_clear( AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
-        ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+#if defined(CONFIG_SOC_APOLLO3_BLUE)
+		ret = am_hal_gpio_interrupt_clear(AM_HAL_GPIO_BIT(gpio_pin));
+		ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_BIT(gpio_pin));
+#elif defined(CONFIG_SOC_APOLLO3P_BLUE)
+		AM_HAL_GPIO_MASKCREATE(GpioIntMask);
+		ret = am_hal_gpio_interrupt_clear( AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+		ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+#endif
 		k_spin_unlock(&data->lock, key);
 
 	} else {
@@ -320,16 +331,21 @@ static int ambiq_gpio_pin_interrupt_configure(const struct device *dev, gpio_pin
 
 		k_spinlock_key_t key = k_spin_lock(&data->lock);
 
-        AM_HAL_GPIO_MASKCREATE(GpioIntMask);
-        ret = am_hal_gpio_interrupt_clear( AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
-        ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+#if defined(CONFIG_SOC_APOLLO3_BLUE)
+		ret = am_hal_gpio_interrupt_clear(AM_HAL_GPIO_BIT(gpio_pin));
+		ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_BIT(gpio_pin));
+#elif defined(CONFIG_SOC_APOLLO3P_BLUE)
+		AM_HAL_GPIO_MASKCREATE(GpioIntMask);
+		ret = am_hal_gpio_interrupt_clear( AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+		ret = am_hal_gpio_interrupt_enable(AM_HAL_GPIO_MASKBIT(pGpioIntMask, gpio_pin));
+#endif
 		k_spin_unlock(&data->lock, key);
 	}
 	return ret;
 }
 
 static int ambiq_gpio_manage_callback(const struct device *dev, struct gpio_callback *callback,
-				      bool set)
+						bool set)
 {
 	struct ambiq_gpio_data *const data = dev->data;
 
@@ -349,8 +365,8 @@ static int ambiq_gpio_init(const struct device *port)
 
 static void ambiq_gpio_cfg_func(void)
 {
-    IRQ_CONNECT(GPIO_IRQn, DT_INST_IRQ(0, priority), ambiq_gpio_isr, DEVICE_DT_INST_GET(0), 0);
-    return;
+	IRQ_CONNECT(GPIO_IRQn, DT_INST_IRQ(0, priority), ambiq_gpio_isr, DEVICE_DT_INST_GET(0), 0);
+	return;
 }
 
 static const struct gpio_driver_api ambiq_gpio_drv_api = {

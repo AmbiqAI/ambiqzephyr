@@ -40,9 +40,6 @@ static int counter_ambiq_init(const struct device *dev)
 
 	am_hal_ctimer_clear(0, AM_HAL_CTIMER_BOTH);
 	am_hal_ctimer_config_single(0, AM_HAL_CTIMER_BOTH, (AM_HAL_CTIMER_FN_REPEAT | AM_HAL_CTIMER_INT_ENABLE | AM_HAL_CTIMER_HFRC_3MHZ));
-
-	am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA0);
-	am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA0);
 #else
 	am_hal_timer_config_t tc;
 
@@ -119,6 +116,9 @@ static int counter_ambiq_set_alarm(const struct device *dev, uint8_t chan_id,
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
+	am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA0);
+	am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA0);
+
 	if ((alarm_cfg->flags & COUNTER_ALARM_CFG_ABSOLUTE) == 0) {
 		am_hal_ctimer_compare_set(0, AM_HAL_CTIMER_BOTH, 0, now + alarm_cfg->ticks);
 	} else {
@@ -152,6 +152,8 @@ static int counter_ambiq_cancel_alarm(const struct device *dev, uint8_t chan_id)
 
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
 	am_hal_ctimer_int_disable(AM_HAL_CTIMER_INT_TIMERA0);
+	/* Reset the compare register */
+	am_hal_ctimer_compare_set(0, AM_HAL_CTIMER_BOTH, 0, 0);
 #else
 	am_hal_timer_interrupt_disable(AM_HAL_TIMER_MASK(0, AM_HAL_TIMER_COMPARE1));
 	/* Reset the compare register */

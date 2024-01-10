@@ -23,7 +23,7 @@ static void pinctrl_configure_pin(const pinctrl_soc_pin_t *pin)
 							  : AM_HAL_GPIO_PIN_OUTCFG_DISABLE;
 	pin_config.eDriveStrength = pin->drive_strength;
 	pin_config.uNCE = pin->iom_nce;
-#if defined(CONFIG_SOC_APOLLO3_BLUE_PLUS)
+#if defined(CONFIG_SOC_APOLLO3P_BLUE)
 	pin_config.bIomMSPIn = pin->iom_mspi;
 #endif
 	pin_config.uIOMnum = pin->iom_num;
