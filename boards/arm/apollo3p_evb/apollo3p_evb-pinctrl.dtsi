@@ -137,6 +137,12 @@
 			ambiq,iom-num = <5>;
 		};
 	};
+	adc0_default: adc0_default{
+		group1 {
+			pinmux = <ADCSE4_P32>, <ADCSE7_P35>;
+			drive-strength = "0.1";
+		};
+	};
 
 	mspi0_default: mspi0_default{
 		group1 {

@@ -125,6 +125,13 @@
 	status = "okay";
 };
 
+&adc0 {
+    compatible = "ambiq,adc";
+	pinctrl-0 = <&adc0_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
+
 &mspi0 {
 	pinctrl-0 = <&mspi0_default>;
 	pinctrl-names = "default";
