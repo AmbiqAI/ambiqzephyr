@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2024 Ambiq Micro Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+
+
+/ {
+	zephyr,user {
+		io-channels =
+			<&adc0 0>;
+	};
+};
+
+&adc0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_4";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <0>;
+		zephyr,resolution = <13>;
+	};
+};
+
