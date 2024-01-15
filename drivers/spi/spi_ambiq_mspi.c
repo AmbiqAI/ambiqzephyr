@@ -361,19 +361,22 @@ static int mspi_ambiq_init(const struct device *dev)
                                              AM_HAL_MSPI_INT_CQUPD |AM_HAL_MSPI_INT_ERR)) {
         ret = -ENODEV;
         LOG_ERR("Fail to clear interrupt, code:%d",ret);
-        return ret;
+        goto error;
     }
 
     if(AM_HAL_STATUS_SUCCESS != am_hal_mspi_interrupt_enable(data->mspiHandle, AM_HAL_MSPI_INT_CQUPD |
                                                          AM_HAL_MSPI_INT_ERR) ) {
         ret = -ENODEV;
         LOG_ERR("Fail to turn on interrupt, code:%d",ret);
-        return ret;
+        goto error;
     }
 
     spi_context_unlock_unconditionally(&data->ctx);
     return 0;
 
+error:
+    k_free((void*)data->pDMATCBBuffer);
+    return ret ;
 }
 #define AMBIQ_MSPI_DEFINE(n)                                                                \
     PINCTRL_DT_INST_DEFINE(n);                                                              \
