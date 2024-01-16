@@ -5,3 +5,6 @@
 config BOARD
 	default "apollo3p_evb"
 	depends on BOARD_APOLLO3P_EVB
+
+config SYS_CLOCK_TICKS_PER_SEC
+	default 1024
