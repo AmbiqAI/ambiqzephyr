@@ -12,9 +12,18 @@ properties:
 
 #   interrupts:
 #     required: true
+  channel-count:
+    type: int
+    required: true
+    description: The maximum channels supported on each unit.
 
   "#io-channel-cells":
     const: 1
+
+  vref-mv:
+    type: int
+    default: 1500
+    description: Indicates the reference voltage of the ADC in mV.
 
 io-channel-cells:
   - input
