@@ -3,27 +3,33 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-
-
 / {
 	zephyr,user {
-		io-channels =
-			<&adc0 0>;
+		io-channels = <&adc0 4>, <&adc0 7>;
 	};
 };
 
 &adc0 {
 	status = "okay";
+	interrupt-parent = <&nvic>;
+	interrupts = <18 0>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	channel@0 {
-		reg = <0>;
-		zephyr,gain = "ADC_GAIN_1_4";
+	channel@4 {
+		reg = <4>;
+		zephyr,gain = "ADC_GAIN_1";
 		zephyr,reference = "ADC_REF_INTERNAL";
 		zephyr,acquisition-time = <0>;
-		zephyr,resolution = <13>;
+		zephyr,resolution = <14>;
+	};
+
+	channel@7 {
+		reg = <7>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <0>;
+		zephyr,resolution = <14>;
 	};
 };
 

@@ -53,41 +53,41 @@ int main(void) {
 
   while (1) {
     printk("ADC reading[%u]:\n", count++);
-    // for (size_t i = 0U; i < ARRAY_SIZE(adc_channels); i++) {
-    //   int32_t val_mv;
+    for (size_t i = 0U; i < ARRAY_SIZE(adc_channels); i++) {
+      int32_t val_mv;
 
-    //   printk("- %s, channel %d: ", adc_channels[i].dev->name,
-    //          adc_channels[i].channel_id);
+      printk("- %s, channel %d: ", adc_channels[i].dev->name,
+             adc_channels[i].channel_id);
 
-    //   (void)adc_sequence_init_dt(&adc_channels[i], &sequence);
+      (void)adc_sequence_init_dt(&adc_channels[i], &sequence);
 
-    //   err = adc_read_dt(&adc_channels[i], &sequence);
-    //   if (err < 0) {
-    //     printk("Could not read (%d)\n", err);
-    //     continue;
-    //   }
+      err = adc_read_dt(&adc_channels[i], &sequence);
+      if (err < 0) {
+        printk("Could not read (%d)\n", err);
+        continue;
+      }
 
-    //   /*
-    //    * If using differential mode, the 16 bit value
-    //    * in the ADC sample buffer should be a signed 2's
-    //    * complement value.
-    //    */
-    //   if (adc_channels[i].channel_cfg.differential) {
-    //     val_mv = (int32_t)((int16_t)buf);
-    //   } else {
-    //     val_mv = (int32_t)buf;
-    //   }
-    //   printk("%" PRId32, val_mv);
-    //   err = adc_raw_to_millivolts_dt(&adc_channels[i], &val_mv);
-    //   /* conversion to mV may not be supported, skip if not */
-    //   if (err < 0) {
-    //     printk(" (value in mV not available)\n");
-    //   } else {
-    //     printk(" = %" PRId32 " mV\n", val_mv);
-    //   }
-    // }
+      /*
+       * If using differential mode, the 16 bit value
+       * in the ADC sample buffer should be a signed 2's
+       * complement value.
+       */
+      if (adc_channels[i].channel_cfg.differential) {
+        val_mv = (int32_t)((int16_t)buf);
+      } else {
+        val_mv = (int32_t)buf;
+      }
+      printk("%" PRId32, val_mv);
+      err = adc_raw_to_millivolts_dt(&adc_channels[i], &val_mv);
+      /* conversion to mV may not be supported, skip if not */
+      if (err < 0) {
+        printk(" (value in mV not available)\n");
+      } else {
+        printk(" = %" PRId32 " mV\n", val_mv);
+      }
+    }
 
-    // k_sleep(K_MSEC(1000));
+    k_sleep(K_MSEC(1000));
   }
   return 0;
 }
