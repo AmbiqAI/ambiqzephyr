@@ -35,10 +35,10 @@ static void wdt_ambiq_isr(void *arg)
 	const struct device *dev = (const struct device *)arg;
 	struct wdt_ambiq_data *data = dev->data;
 
-	uint32_t status;
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
 	am_hal_wdt_int_clear();
 #else
+	uint32_t status;
 	am_hal_wdt_interrupt_status_get(AM_HAL_WDT_MCU, &status, false);
 	am_hal_wdt_interrupt_clear(AM_HAL_WDT_MCU, status);
 #endif
@@ -55,7 +55,7 @@ static int wdt_ambiq_setup(const struct device *dev, uint8_t options)
 	am_hal_wdt_config_t cfg;
 
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
-	uint32_t ui32ClockSource;
+	uint32_t ui32ClockSource = AM_HAL_WDT_LFRC_CLK_DEFAULT;
 	if (dev_cfg->clk_freq == 128) {
 		ui32ClockSource = AM_HAL_WDT_LFRC_CLK_128HZ;
 	} else if (dev_cfg->clk_freq == 16) {
@@ -64,11 +64,12 @@ static int wdt_ambiq_setup(const struct device *dev, uint8_t options)
 		ui32ClockSource = AM_HAL_WDT_LFRC_CLK_1HZ;
 	}
 	cfg.ui32Config = 
-	_VAL2FLD(WDT_CFG_CLKSEL, ui32ClockSource)  |
-	data->reset                             |
+	ui32ClockSource  |
+	_VAL2FLD(WDT_CFG_RESEN, data->reset)       |
 	AM_HAL_WDT_ENABLE_INTERRUPT;
 	cfg.ui16InterruptCount = data->timeout;
 	cfg.ui16ResetCount = data->timeout;
+	am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_LFRC_START, 0);
 	am_hal_wdt_init(&cfg);
 	am_hal_wdt_int_enable();
 	am_hal_wdt_start();
