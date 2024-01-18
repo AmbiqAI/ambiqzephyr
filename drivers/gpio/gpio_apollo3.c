@@ -204,7 +204,7 @@ static int ambiq_gpio_port_get_raw(const struct device *dev, gpio_port_value_t *
 {
 	const struct ambiq_gpio_config *const dev_cfg = dev->config;
 
-	*value = am_hal_gpio_input_read(dev_cfg->offset);
+	*value = AM_REGVAL(AM_REGADDR(GPIO, RDA) + (dev_cfg->offset >> 3));
 
 	return 0;
 }
@@ -323,7 +323,8 @@ static int ambiq_gpio_pin_interrupt_configure(const struct device *dev, gpio_pin
 			pincfg.eIntDir = AM_HAL_GPIO_PIN_INTDIR_LO2HI;
 			break;
 		case GPIO_INT_TRIG_BOTH:
-			return -ENOTSUP;
+			pincfg.eIntDir = AM_HAL_GPIO_PIN_INTDIR_BOTH;
+			break;
 		}
 		ret = am_hal_gpio_pinconfig(gpio_pin, pincfg);
 
