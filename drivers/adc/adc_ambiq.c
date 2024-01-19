@@ -67,7 +67,6 @@ static int adc_ambiq_set_resolution(am_hal_adc_slot_prec_e *prec, uint8_t adc_re
 		*prec = AM_HAL_ADC_SLOT_14BIT;
 		break;
 	default:
-		LOG_ERR("Unsupported resolution");
 		return -ENOTSUP;
 	}
 
@@ -80,7 +79,7 @@ static int adc_ambiq_set_resolution(am_hal_adc_slot_prec_e *prec, uint8_t adc_re
 static void adc_ambiq_isr(const struct device *dev)
 {
 	struct adc_ambiq_data *data = dev->data;
-	uint32_t ui32IntStatus;
+	// uint32_t ui32IntStatus;
 	uint32_t ui32IntMask;
 	uint32_t ui32NumSamples;
 	am_hal_adc_sample_t Sample;
@@ -109,8 +108,10 @@ static int adc_ambiq_start_read(const struct device *dev, const struct adc_seque
 	struct adc_ambiq_data *data = dev->data;
 	const struct adc_ambiq_config *cfg = dev->config;
 	am_hal_adc_slot_config_t ADCSlotConfig;
+	uint8_t channel_id = 0;
+	uint8_t	sequence_channel_count = 0;
 	int error = 0;
-	uint8_t select_channel = 0;
+
 	if (sequence->channels & ~BIT_MASK(cfg->num_channels)) {
 		LOG_ERR("Incorrect channels, bitmask 0x%x", sequence->channels);
 		return -EINVAL;
@@ -121,7 +122,31 @@ static int adc_ambiq_start_read(const struct device *dev, const struct adc_seque
 		return -EINVAL;
 	}
 
-	select_channel = find_lsb_set(sequence->channels) - 1;
+    for (size_t i = 0; i < cfg->num_channels; ++i) {
+            if ((BIT(i) & sequence->channels) == 0) {
+			continue;
+		}
+        sequence_channel_count ++;
+    }
+
+	if (sequence_channel_count > 1) {
+		LOG_ERR("multiple channels selected");
+		return -ENOTSUP;
+	}
+    channel_id = find_lsb_set(sequence->channels) - 1;
+
+#if 0
+    uint32_t channels;
+	uint8_t channel_count;
+    uint8_t index;
+    channels = sequence->channels;
+	channel_count = 0;
+	while (channels) {
+	    index = find_lsb_set(channels) - 1;
+        channel_count++;
+		channels &= ~BIT(index);
+    }
+#endif
 
 	if (adc_ambiq_set_resolution(&ADCSlotConfig.ePrecisionMode, sequence->resolution) != 0) {
 		LOG_ERR("unsupported resolution %d", sequence->resolution);
@@ -129,7 +154,7 @@ static int adc_ambiq_start_read(const struct device *dev, const struct adc_seque
 	}
 	/* Set up an ADC slot */
 	ADCSlotConfig.eMeasToAvg = AM_HAL_ADC_SLOT_AVG_1;
-	ADCSlotConfig.eChannel = (am_hal_adc_slot_chan_e)select_channel;
+	ADCSlotConfig.eChannel = (am_hal_adc_slot_chan_e)channel_id;
 	ADCSlotConfig.bWindowCompare = false;
 	ADCSlotConfig.bEnabled = true;
 	// #TODO slotmumber = 0, the actual value should be according to the relationship between
@@ -137,7 +162,7 @@ static int adc_ambiq_start_read(const struct device *dev, const struct adc_seque
 	if (AM_HAL_STATUS_SUCCESS !=
 	    am_hal_adc_configure_slot(data->adcHandle, AMBIQ_DEFAULT_SLOT_NUMBER, &ADCSlotConfig)) {
 		LOG_ERR("configuring ADC Slot 0 failed.\n");
-		return -ENOTSUP;
+		return -ENODEV;
 	}
 
 	/* Enable the ADC. */

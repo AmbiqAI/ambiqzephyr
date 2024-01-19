@@ -129,7 +129,7 @@
     compatible = "ambiq,adc";
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
-	status = "disabled";
+	status = "okay";
 };
 
 &mspi0 {
