@@ -180,7 +180,6 @@ uint32_t sys_clock_cycle_get_32(void)
 static int stimer_init(void)
 {
 	uint32_t oldCfg;
-	k_spinlock_key_t key = k_spin_lock(&g_lock);
 
 	oldCfg = am_hal_stimer_config(AM_HAL_STIMER_CFG_FREEZE);
 
@@ -192,8 +191,6 @@ static int stimer_init(void)
 			     AM_HAL_STIMER_XTAL_32KHZ | AM_HAL_STIMER_CFG_COMPARE_A_ENABLE);
 #endif
 	g_last_count = am_hal_stimer_counter_get();
-
-	k_spin_unlock(&g_lock, key);
 
 	NVIC_ClearPendingIRQ(TIMER_IRQ);
 	IRQ_CONNECT(TIMER_IRQ, 0, stimer_isr, 0, 0);
