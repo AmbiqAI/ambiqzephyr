@@ -20,7 +20,7 @@
 		reg = <4>;
 		zephyr,gain = "ADC_GAIN_1";
 		zephyr,reference = "ADC_REF_INTERNAL";
-		zephyr,acquisition-time = <0>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
 		zephyr,resolution = <14>;
 	};
 
@@ -28,7 +28,7 @@
 		reg = <7>;
 		zephyr,gain = "ADC_GAIN_1";
 		zephyr,reference = "ADC_REF_INTERNAL";
-		zephyr,acquisition-time = <0>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
 		zephyr,resolution = <14>;
 	};
 };
