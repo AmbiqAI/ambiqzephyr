@@ -59,7 +59,7 @@
 
 		counter0: counter@40008000 {
 			compatible = "ambiq,counter";
-			reg = <0x40008000 0x80>;
+			reg = <0x40008000 0x20>;
 			interrupts = <14 0>;
 			status = "disabled";
 		};
