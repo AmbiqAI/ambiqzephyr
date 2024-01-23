@@ -18,37 +18,26 @@ LOG_MODULE_REGISTER(adc_ambiq, CONFIG_ADC_LOG_LEVEL);
 #define DT_DRV_COMPAT ambiq_adc
 
 typedef int (*ambiq_adc_pwr_func_t)(void);
-#define PWRCTRL_MAX_WAIT_US       5
-#define AMBIQ_DEFAULT_SLOT_NUMBER 1
+#define PWRCTRL_MAX_WAIT_US         5
+#define AMBIQ_ADC_SLOT_BUMBER       AM_HAL_ADC_MAX_SLOTS
 
 struct adc_ambiq_config {
 	/* adc controller base address */
 	uint32_t base;
 	int size;
-	// uint8_t instance;
 	/** Number of supported channels */
 	uint8_t num_channels;
-
-	// uint8_t callback_select;
-	// Adc_Sar_Ip_ConfigType *adc_cfg;
-	// void (*irq_config_func)(const struct device *dev);
-	/* routine for configuring ADC's ISR */
 	void (*irq_config_func)(void);
 	const struct pinctrl_dev_config *pin_cfg;
 	ambiq_adc_pwr_func_t pwr_func;
 };
 
 struct adc_ambiq_data {
-	/* ADC Device pointer used in api functions */
-	// const struct device *dev;
-	/* mutex of ADC channels */
 	struct adc_context ctx;
 	void *adcHandle;
 	uint16_t *buffer;
-	// uint16_t *buf_end;
 	uint16_t *repeat_buffer;
-	// uint32_t mask_channels;
-	// uint8_t num_channels;
+    uint8_t active_channels;
 };
 
 static int adc_ambiq_set_resolution(am_hal_adc_slot_prec_e *prec, uint8_t adc_resolution)
@@ -72,44 +61,88 @@ static int adc_ambiq_set_resolution(am_hal_adc_slot_prec_e *prec, uint8_t adc_re
 
 	return 0;
 }
+static int adc_ambiq_slot_config(const struct device *dev,const struct adc_sequence *sequence,am_hal_adc_slot_chan_e channel, uint32_t ui32SlotNumber)
+{
+	struct adc_ambiq_data *data = dev->data;
+	am_hal_adc_slot_config_t ADCSlotConfig;
 
+	if (adc_ambiq_set_resolution(&ADCSlotConfig.ePrecisionMode, sequence->resolution) != 0) {
+		LOG_ERR("unsupported resolution %d", sequence->resolution);
+		return -ENOTSUP;
+	}
+
+    /* Set up an ADC slot */
+    ADCSlotConfig.eMeasToAvg = AM_HAL_ADC_SLOT_AVG_1;
+    ADCSlotConfig.eChannel = channel;
+    ADCSlotConfig.bWindowCompare = false;
+    ADCSlotConfig.bEnabled = true;
+    if (AM_HAL_STATUS_SUCCESS !=
+        am_hal_adc_configure_slot(data->adcHandle, ui32SlotNumber, &ADCSlotConfig)) {
+        LOG_ERR("configuring ADC Slot 0 failed.\n");
+        return -ENODEV;
+    }
+
+    return 0;
+}
 /**
  * Interrupt handler
  */
 static void adc_ambiq_isr(const struct device *dev)
 {
 	struct adc_ambiq_data *data = dev->data;
-	// uint32_t ui32IntStatus;
 	uint32_t ui32IntMask;
 	uint32_t ui32NumSamples;
 	am_hal_adc_sample_t Sample;
 
-	// Read the interrupt status.
+	/* Read the interrupt status. */
 	am_hal_adc_interrupt_status(data->adcHandle, &ui32IntMask, true);
-	// Clear the ADC interrupt.
+	/* Clear the ADC interrupt.*/
 	am_hal_adc_interrupt_clear(data->adcHandle, ui32IntMask);
-	//
-	// If we got a conversion completion interrupt (which should be our only
-	// ADC interrupt), go ahead and read the data.
-	//
+
+    /*
+	* If we got a conversion completion interrupt (which should be our only
+	* ADC interrupt), go ahead and read the data.
+    */
 	if (ui32IntMask & AM_HAL_ADC_INT_CNVCMP) {
-		//
-		// Read the value from the FIFO.
-		//
-		ui32NumSamples = 1;
-		am_hal_adc_samples_read(data->adcHandle, false, NULL, &ui32NumSamples, &Sample);
-		*data->buffer++ = Sample.ui32Sample;
+        for(uint32_t i = 0; i< data->active_channels; i++){
+            /* Read the value from the FIFO. */
+            ui32NumSamples = 1;
+            am_hal_adc_samples_read(data->adcHandle, false, NULL, &ui32NumSamples, &Sample);
+            *data->buffer++ = Sample.ui32Sample;
+        }
 		adc_context_on_sampling_done(&data->ctx, dev);
 	}
+}
+
+static int adc_ambiq_check_buffer_size(const struct adc_sequence *sequence,
+					uint8_t active_channels)
+{
+	size_t needed_buffer_size;
+
+	needed_buffer_size = active_channels * sizeof(uint16_t);
+
+	if (sequence->options) {
+		needed_buffer_size *= (1 + sequence->options->extra_samplings);
+	}
+
+	if (sequence->buffer_size < needed_buffer_size) {
+		LOG_DBG("Provided buffer is too small (%u/%u)",
+			sequence->buffer_size, needed_buffer_size);
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 
 static int adc_ambiq_start_read(const struct device *dev, const struct adc_sequence *sequence)
 {
 	struct adc_ambiq_data *data = dev->data;
 	const struct adc_ambiq_config *cfg = dev->config;
-	am_hal_adc_slot_config_t ADCSlotConfig;
 	uint8_t channel_id = 0;
-	uint8_t	sequence_channel_count = 0;
+    uint32_t channels = 0;
+	uint8_t	active_channels = 0;
+    uint8_t slot_index;
+
 	int error = 0;
 
 	if (sequence->channels & ~BIT_MASK(cfg->num_channels)) {
@@ -121,53 +154,31 @@ static int adc_ambiq_start_read(const struct device *dev, const struct adc_seque
 		LOG_ERR("No channel selected");
 		return -EINVAL;
 	}
-
-    for (size_t i = 0; i < cfg->num_channels; ++i) {
-            if ((BIT(i) & sequence->channels) == 0) {
-			continue;
-		}
-        sequence_channel_count ++;
-    }
-
-	if (sequence_channel_count > 1) {
-		LOG_ERR("multiple channels selected");
+    active_channels = POPCOUNT(sequence->channels);
+    if (active_channels > AMBIQ_ADC_SLOT_BUMBER){
+		LOG_ERR("Too many channels for sequencer. Max: %d", AMBIQ_ADC_SLOT_BUMBER);
 		return -ENOTSUP;
 	}
-    channel_id = find_lsb_set(sequence->channels) - 1;
 
-#if 0
-    uint32_t channels;
-	uint8_t channel_count;
-    uint8_t index;
     channels = sequence->channels;
-	channel_count = 0;
-	while (channels) {
-	    index = find_lsb_set(channels) - 1;
-        channel_count++;
-		channels &= ~BIT(index);
+    for (slot_index = 0; slot_index < active_channels; slot_index++) {
+        channel_id = find_lsb_set(channels) - 1;
+        error = adc_ambiq_slot_config(dev, sequence, channel_id, slot_index);
+        if(error < 0) {
+		    return error;
+	    }
+		channels &= ~BIT(channel_id);
     }
-#endif
-
-	if (adc_ambiq_set_resolution(&ADCSlotConfig.ePrecisionMode, sequence->resolution) != 0) {
-		LOG_ERR("unsupported resolution %d", sequence->resolution);
-		return -ENOTSUP;
-	}
-	/* Set up an ADC slot */
-	ADCSlotConfig.eMeasToAvg = AM_HAL_ADC_SLOT_AVG_1;
-	ADCSlotConfig.eChannel = (am_hal_adc_slot_chan_e)channel_id;
-	ADCSlotConfig.bWindowCompare = false;
-	ADCSlotConfig.bEnabled = true;
-	// #TODO slotmumber = 0, the actual value should be according to the relationship between
-	// the channel and pin numbers
-	if (AM_HAL_STATUS_SUCCESS !=
-	    am_hal_adc_configure_slot(data->adcHandle, AMBIQ_DEFAULT_SLOT_NUMBER, &ADCSlotConfig)) {
-		LOG_ERR("configuring ADC Slot 0 failed.\n");
-		return -ENODEV;
-	}
+    __ASSERT_NO_MSG(channels == 0);
 
 	/* Enable the ADC. */
 	am_hal_adc_enable(data->adcHandle);
 
+	error = adc_ambiq_check_buffer_size(sequence, active_channels);
+	if (error < 0) {
+		return error;
+	}
+    data->active_channels = active_channels;
 	data->buffer = sequence->buffer;
 	/* Start ADC conversion */
 	adc_context_start_read(&data->ctx, sequence);
@@ -212,8 +223,7 @@ static int adc_ambiq_channel_setup(const struct device *dev, const struct adc_ch
 		LOG_ERR("unsupported acquisition_time '%d'", chan_cfg->acquisition_time);
 		return -ENOTSUP;
 	}
-	// #TODO AP3 support differential, ap4 do not support, is it necessary to support this
-	// feature?
+
 	if (chan_cfg->differential) {
 		LOG_ERR("Differential sampling not supported");
 		return -ENOTSUP;
@@ -234,8 +244,6 @@ static void adc_context_update_buffer_pointer(struct adc_context *ctx, bool repe
 static void adc_context_start_sampling(struct adc_context *ctx)
 {
 	struct adc_ambiq_data *data = CONTAINER_OF(ctx, struct adc_ambiq_data, ctx);
-	// const struct device *dev = data->dev;
-	// const struct adc_mspi_config *cfg = dev->config;
 
 	data->repeat_buffer = data->buffer;
 	/*Trigger the ADC*/
@@ -273,7 +281,7 @@ static int adc_ambiq_init(const struct device *dev)
 	ADCConfig.eReference = AM_HAL_ADC_REFSEL_INT_1P5;
 	ADCConfig.eClockMode = AM_HAL_ADC_CLKMODE_LOW_POWER;
 	ADCConfig.ePowerMode = AM_HAL_ADC_LPMODE0;
-	ADCConfig.eRepeat = AM_HAL_ADC_SINGLE_SCAN; // #TODO need check the repeat mode
+	ADCConfig.eRepeat = AM_HAL_ADC_SINGLE_SCAN;
 	if (AM_HAL_STATUS_SUCCESS != am_hal_adc_configure(data->adcHandle, &ADCConfig)) {
 		ret = -ENODEV;
 		LOG_ERR("Configuring ADC failed, code:%d", ret);
