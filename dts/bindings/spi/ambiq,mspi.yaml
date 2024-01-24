@@ -17,7 +17,7 @@ properties:
   ambiq,pwrcfg:
     required: true
 
-  chip-select:
+  mspi-ce:
     type: int
     description: |
-      Use MSPI CS0# or CS1#.
+      CE number(0-1)

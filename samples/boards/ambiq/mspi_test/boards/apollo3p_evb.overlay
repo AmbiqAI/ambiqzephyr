@@ -5,15 +5,29 @@
  */
 
 &mspi0 {
-	compatible = "ambiq,mspi";
-	status = "okay";
-	interrupt-parent = <&nvic>;
-	interrupts = <20 0>;
-	cs-gpios = <&gpio32_63 5 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+	status = "disabled";
 };
 
 &mspi1 {
-	status = "disabled";
+	compatible = "ambiq,mspi";
+	interrupt-parent = <&nvic>;
+
+    cs-gpios =  <&gpio32_63 18 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>,   /* 50 */
+		        <&gpio64_95 5 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;    /* 69 */
+
+    mspi1_flash0: atxp128@0 {
+        mspi-ce = <0>;
+		reg = <0>;
+		// spi-max-frequency = <48000000>;
+		status = "okay";
+    };
+	mspi1_psram0: psram0@1 {
+        mspi-ce = <1>;
+		reg = <1>;
+		// compatible = "ambiq,aps6404";
+		// spi-max-frequency = <48000000>;
+		status = "okay";
+	};
 };
 
 &mspi2 {
