@@ -536,10 +536,43 @@ static int mspi_ambiq_init(const struct device *dev)
 	return 0;
 }
 
-#if defined(CONFIG_SOC_SERIES_APOLLO4X)
 
+#ifdef CONFIG_PM_DEVICE
+static int mspi_ambiq_pm_action(const struct device *dev,
+			       enum pm_device_action action)
+{
+	struct mspi_ambiq_data *data = dev->data;
+	uint32_t ret;
+	am_hal_sysctrl_power_state_e status;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		status = AM_HAL_SYSCTRL_WAKE;
+		break;
+	case PM_DEVICE_ACTION_SUSPEND:
+		state = AM_HAL_SYSCTRL_DEEPSLEEP;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	ret = am_hal_mspi_power_control(data->mspiHandle, status, true);
+
+	if(ret != AM_HAL_STATUS_SUCCESS)
+	{
+		return -EPERM;
+	}
+	else
+	{
+		return 0;
+	}
+}
+#endif /* CONFIG_PM_DEVICE */
+
+#if defined(CONFIG_SOC_SERIES_APOLLO4X)
 #define AMBIQ_MSPI_DEFINE(n)                                                                       \
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	PM_DEVICE_DT_INST_DEFINE(n, mspi_ambiq_pm_action);                                        \
 	static int pwr_on_ambiq_mspi_##n(void)                                                     \
 	{                                                                                          \
 		uint32_t addr = DT_REG_ADDR(DT_INST_PHANDLE(n, ambiq_pwrcfg)) +                    \
@@ -556,7 +589,7 @@ static int mspi_ambiq_init(const struct device *dev)
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.pwr_func = pwr_on_ambiq_mspi_##n,                                                 \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(n, mspi_ambiq_init, NULL, &mspi_ambiq_data##n,                       \
+	DEVICE_DT_INST_DEFINE(n, mspi_ambiq_init, PM_DEVICE_DT_INST_GET(n), &mspi_ambiq_data##n,                       \
 			      &mspi_ambiq_config##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,        \
 			      &mspi_ambiq_driver_api);
 
