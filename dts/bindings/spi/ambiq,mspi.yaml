@@ -16,8 +16,3 @@ properties:
 
   ambiq,pwrcfg:
     required: true
-
-  mspi-ce:
-    type: int
-    description: |
-      CE number(0-1)
