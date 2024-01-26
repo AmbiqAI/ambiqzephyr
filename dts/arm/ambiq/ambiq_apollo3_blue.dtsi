@@ -64,6 +64,55 @@
 			status = "disabled";
 		};
 
+		counter1: counter@40008020 {
+			compatible = "ambiq,counter";
+			reg = <0x40008020 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter2: counter@40008040 {
+			compatible = "ambiq,counter";
+			reg = <0x40008040 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter3: counter@40008060 {
+			compatible = "ambiq,counter";
+			reg = <0x40008060 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter4: counter@40008080 {
+			compatible = "ambiq,counter";
+			reg = <0x40008080 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter5: counter@400080a0 {
+			compatible = "ambiq,counter";
+			reg = <0x400080A0 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter6: counter@400080a0 {
+			compatible = "ambiq,counter";
+			reg = <0x400080C0 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		counter7: counter@400080e0 {
+			compatible = "ambiq,counter";
+			reg = <0x400080E0 0x20>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
 		uart0: uart@4001c000 {
 			compatible = "ambiq,uart", "arm,pl011";
 			reg = <0x4001c000 0x1000>;
@@ -73,6 +122,7 @@
 			clocks = <&uartclk>;
 			ambiq,pwrcfg = <&pwrcfg 0x8 0x80>;
 		};
+
 		uart1: uart@4001d000 {
 			compatible = "ambiq,uart", "arm,pl011";
 			reg = <0x4001d000 0x1000>;
@@ -118,6 +168,7 @@
 			status = "disabled";
 			ambiq,pwrcfg = <&pwrcfg 0x8 0x10>;
 		};
+
 		iom4: iom@50008000 {
 			reg = <0x50008000 0x1000>;
 			#address-cells = <1>;

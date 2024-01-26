@@ -77,6 +77,34 @@
 	status = "okay";
 };
 
+&counter1 {
+	status = "okay";
+};
+
+&counter2 {
+	status = "okay";
+};
+
+&counter3 {
+	status = "okay";
+};
+
+&counter4 {
+	status = "okay";
+};
+
+&counter5 {
+	status = "okay";
+};
+
+&counter6 {
+	status = "okay";
+};
+
+&counter7 {
+	status = "okay";
+};
+
 &wdt0 {
 	status = "okay";
 };
