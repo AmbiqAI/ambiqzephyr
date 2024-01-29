@@ -13,6 +13,10 @@ LOG_MODULE_REGISTER(spi_ambiq);
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
+#include <zephyr/pm/device_runtime.h>
+
 #include <stdlib.h>
 #include <errno.h>
 #include "spi_context.h"
@@ -265,6 +269,14 @@ static int spi_ambiq_transceive(const struct device *dev, const struct spi_confi
 		return 0;
 	}
 
+#if defined(CONFIG_PM_DEVICE_RUNTIME)
+	int rc = pm_device_runtime_get(dev);
+
+	if (rc < 0) {
+		LOG_ERR("pm_device_runtime_get failed: %d", rc);
+	}
+#endif
+
 	/* context setup */
 	spi_context_lock(&data->ctx, false, NULL, NULL, config);
 
@@ -280,6 +292,14 @@ static int spi_ambiq_transceive(const struct device *dev, const struct spi_confi
 	ret = spi_ambiq_xfer(dev, config);
 
 	spi_context_release(&data->ctx, ret);
+
+#if defined(CONFIG_PM_DEVICE_RUNTIME)
+	rc = pm_device_runtime_put(dev);
+
+	if (rc < 0) {
+		LOG_ERR("pm_device_runtime_put failed: %d", rc);
+	}
+#endif
 
 	return ret;
 }
@@ -363,7 +383,7 @@ static int spi_ambiq_pm_action(const struct device *dev,
 		status = AM_HAL_SYSCTRL_WAKE;
 		break;
 	case PM_DEVICE_ACTION_SUSPEND:
-		state = AM_HAL_SYSCTRL_DEEPSLEEP;
+		status = AM_HAL_SYSCTRL_DEEPSLEEP;
 		break;
 	default:
 		return -ENOTSUP;
@@ -373,6 +393,7 @@ static int spi_ambiq_pm_action(const struct device *dev,
 
 	if(ret != AM_HAL_STATUS_SUCCESS)
 	{
+		LOG_ERR("am_hal_iom_power_ctrl failed: %d", ret);
 		return -EPERM;
 	}
 	else
