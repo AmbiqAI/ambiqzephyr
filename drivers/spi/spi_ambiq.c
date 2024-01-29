@@ -64,7 +64,7 @@ static void spi_ambiq_isr(const struct device *dev)
 	uint32_t ui32Status;
 	struct spi_ambiq_data *data = dev->data;
 
-	am_hal_iom_interrupt_status_get(data->IOMHandle, &ui32Status, false);
+	am_hal_iom_interrupt_status_get(data->IOMHandle, false, &ui32Status);
 	am_hal_iom_interrupt_clear(data->IOMHandle, ui32Status);
 	am_hal_iom_interrupt_service(data->IOMHandle, ui32Status);
 }
