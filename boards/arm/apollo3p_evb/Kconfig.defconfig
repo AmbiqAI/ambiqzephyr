@@ -13,4 +13,4 @@ config PM_DEVICE
 	default y if PM
 
 config PM_DEVICE_RUNTIME
-	default y if PM
+	default y if PM_DEVICE
