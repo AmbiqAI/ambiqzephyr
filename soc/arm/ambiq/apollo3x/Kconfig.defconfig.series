@@ -9,4 +9,7 @@ source "soc/arm/ambiq/apollo3x/Kconfig.defconfig.apollo3*"
 config SOC_SERIES
 	default "apollo3x"
 
+config PM
+	default y
+
 endif # SOC_SERIES_APOLLO3X

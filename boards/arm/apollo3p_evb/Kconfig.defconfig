@@ -8,3 +8,9 @@ config BOARD
 
 config SYS_CLOCK_TICKS_PER_SEC
 	default 1024
+
+config PM_DEVICE
+	default y if PM
+
+config PM_DEVICE_RUNTIME
+	default y if PM
