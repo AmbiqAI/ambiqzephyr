@@ -48,3 +48,8 @@ config BT_HCI_ACL_FLOW_CONTROL
 	default n
 
 endif # BT
+/* Need to enlarge the IDLE stack size because the power 
+ * management operations are executed in the idle task
+ */
+config IDLE_STACK_SIZE
+	default 2048 if PM
