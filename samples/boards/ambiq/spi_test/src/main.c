@@ -23,7 +23,7 @@ static const struct device *spi_dev = DEVICE_DT_GET(TESE_SPI);
 #define TEST_FREQ_HZ 8000000U	//48000000U
 
 
-static const struct spi_config spi_cfg_single = {
+static struct spi_config spi_cfg_single = {
 	.frequency = TEST_FREQ_HZ,
 	.operation = (SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | SPI_WORD_SET(8)
 		      | SPI_LINES_SINGLE),
@@ -41,15 +41,16 @@ int main(void)
 		return -1;
 	}
 
-	#define DATA_SIZE	8
-	uint8_t buff[DATA_SIZE] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+	#define DATA_SIZE	1024
+	uint8_t buff[DATA_SIZE] = {0};
+	memset(buff, 0x5A, DATA_SIZE);
 	uint8_t rxdata[DATA_SIZE];
 
 	struct spi_buf tx_buf[1] = {
 		{.buf = buff, .len = DATA_SIZE},
 	};
 	struct spi_buf rx_buf[1] = {
-		{.buf = rxdata, .len = DATA_SIZE},
+		{.buf = rxdata, .len = 0},
 	};
 
 	tx_set.buffers = tx_buf;
@@ -57,18 +58,15 @@ int main(void)
 
 	ret = spi_transceive(spi_dev, &spi_cfg_single, &tx_set, NULL);
 
-	printf("8bit_loopback_partial; ret: %d\n", ret);
-	printf(" tx (i)  : %02x %02x %02x %02x %02x\n",
-	       buff[0], buff[1], buff[2], buff[3], buff[4]);
-	// printf(" rx (i)  : %02x %02x %02x %02x %02x\n",
-	//        rxdata[0], rxdata[1], rxdata[2], rxdata[3], rxdata[4]);
-
 	tx_buf[0].len = 1;
 	rx_set.buffers = rx_buf;
 	rx_set.count = 1;
+	spi_cfg_single.operation |= SPI_HOLD_ON_CS;
 	ret = spi_transceive(spi_dev, &spi_cfg_single, &tx_set, &rx_set);
 
 	tx_buf[0].len = 0;
+	rx_buf[0].len = DATA_SIZE;
+	spi_cfg_single.operation &= ~SPI_HOLD_ON_CS;
 	ret = spi_transceive(spi_dev, &spi_cfg_single, &tx_set, &rx_set);
 
 	return 0;

@@ -164,6 +164,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 	struct spi_ambiq_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
 	int ret = 0;
+	bool bContinue = (config->operation & SPI_HOLD_ON_CS) ? true : false;
 
 	am_hal_iom_transfer_t trans = {0};
 
@@ -200,9 +201,9 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 				}
 			}
 
-			/* Set RX direction and hold CS to continue to receive data. */
+			/* Set RX direction and receive data. */
 			trans.eDirection = AM_HAL_IOM_RX;
-			trans.bContinue = true;
+			trans.bContinue = bContinue;
 			trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
 			trans.ui32NumBytes = ctx->rx_len;
 #ifdef CONFIG_SPI_AMBIQ_DMA
@@ -216,10 +217,10 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 #else
 			ret = am_hal_iom_blocking_transfer(data->IOMHandle, &trans);
 #endif
-		} else if (ctx->tx_buf != NULL) {
-			/* Set TX direction to send data and release CS after transmission. */
+		} else {
+			/* Set TX direction to send data. */
 			trans.eDirection = AM_HAL_IOM_TX;
-			trans.bContinue = false;
+			trans.bContinue = bContinue;
 			trans.ui32NumBytes = ctx->tx_len;
 			trans.pui32TxBuffer = (uint32_t *)ctx->tx_buf;
 #ifdef CONFIG_SPI_AMBIQ_DMA
@@ -238,7 +239,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 	} else {
 		/* Set RX direction to receive data and release CS after transmission. */
 		trans.eDirection = AM_HAL_IOM_RX;
-		trans.bContinue = false;
+		trans.bContinue = bContinue;
 		trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
 		trans.ui32NumBytes = ctx->rx_len;
 #ifdef CONFIG_SPI_AMBIQ_DMA
