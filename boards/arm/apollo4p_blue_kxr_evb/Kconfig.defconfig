@@ -8,6 +8,12 @@ config BOARD
 
 if BT
 
+config GPIO
+	default y
+
+config CLOCK_CONTROL
+	default y
+
 config MAIN_STACK_SIZE
 	default 2048
 
