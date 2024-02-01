@@ -11,6 +11,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/policy.h>
+#include <zephyr/pm/device_runtime.h>
 
 #include "uart_pl011_registers.h"
 #include <am_mcu_apollo.h>
@@ -78,7 +79,6 @@ static int uart_ambiq_pm_action(const struct device *dev,
 			       enum pm_device_action action)
 {
         int key;
-        uint32_t loops;
 
         /*Uart module number*/
         uint32_t ui32Module = ((uint32_t)get_uart(dev) == REG_UART_BASEADDR) ? 0 : 1;
