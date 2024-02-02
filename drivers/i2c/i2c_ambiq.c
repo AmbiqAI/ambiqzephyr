@@ -329,8 +329,8 @@ static int i2c_ambiq_pm_action(const struct device *dev,
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.irq_config_func = i2c_irq_config_func_##n,                                        \
 		.pwr_func = pwr_on_ambiq_i2c_##n};                                                 \
-	PM_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_pm_action);										\
-	I2C_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_init, PM_DEVICE_DT_INST_GET(n),, &i2c_ambiq_data##n,                     \
+	PM_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_pm_action);                                      \
+	I2C_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_init, PM_DEVICE_DT_INST_GET(n), &i2c_ambiq_data##n, \
 				  &i2c_ambiq_config##n, POST_KERNEL, CONFIG_I2C_INIT_PRIORITY,     \
 				  &i2c_ambiq_driver_api);
 
