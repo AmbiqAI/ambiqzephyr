@@ -54,6 +54,16 @@ static am_hal_ctimer_config_t g_sContTimer =
 #define COUNTER_FREQ 6000000
 #define COUNTER_BASE (REG_TIMER_BASEADDR + 0x200)
 #endif
+
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+static void counter_irq_config_func(void)
+{
+	NVIC_ClearPendingIRQ(CTIMER_IRQn);
+	IRQ_CONNECT(CTIMER_IRQn, DT_INST_IRQ(0, priority), counter_ambiq_isr, DEVICE_DT_INST_GET(0), 0);
+	irq_enable(CTIMER_IRQn);
+};
+#endif
+
 static int counter_ambiq_init(const struct device *dev)
 {
 	k_spinlock_key_t key = k_spin_lock(&lock);
@@ -64,6 +74,7 @@ static int counter_ambiq_init(const struct device *dev)
 
 	am_hal_ctimer_clear(cfg->instance, AM_HAL_CTIMER_BOTH);
 	am_hal_ctimer_config(cfg->instance, &g_sContTimer);
+	counter_irq_config_func();
 #else
 	am_hal_timer_config_t tc;
 
@@ -73,8 +84,8 @@ static int counter_ambiq_init(const struct device *dev)
 	tc.ui32PatternLimit = 0;
 
 	am_hal_timer_config(cfg->instance, &tc);
-#endif
 	cfg->irq_config_func();
+#endif
 
 	k_spin_unlock(&lock, key);
 
@@ -246,8 +257,21 @@ static void counter_ambiq_isr(void *arg)
 	}
 }
 
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
 #define AMBIQ_COUNTER_INIT(idx)                                                                    \
-                                                                                                   \
+	static struct counter_ambiq_data counter_data_##idx;                                       \
+	static const struct counter_ambiq_config counter_config_##idx = {                          \
+		.instance = (DT_INST_REG_ADDR(idx) - COUNTER_BASE) / DT_INST_REG_SIZE(idx),            \
+		.counter_info = {.max_top_value = UINT32_MAX,                                      \
+				.freq = COUNTER_FREQ,                                                  \
+				.flags = COUNTER_CONFIG_INFO_COUNT_UP,                            \
+				.channels = 1},                                                   \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(idx, counter_ambiq_init, NULL, &counter_data_##idx,                  \
+				&counter_config_##idx, PRE_KERNEL_1, CONFIG_COUNTER_INIT_PRIORITY,   \
+				&counter_api);
+#else
+#define AMBIQ_COUNTER_INIT(idx)                                                                    \
 	static void counter_irq_config_func_##idx(void)                                                  \
 	{                                                                                          \
 		NVIC_ClearPendingIRQ(DT_INST_IRQN(idx));                                                      \
@@ -256,7 +280,6 @@ static void counter_ambiq_isr(void *arg)
 		irq_enable(DT_INST_IRQN(idx));                                                       \
 	};                                                                                         \
 	static struct counter_ambiq_data counter_data_##idx;                                       \
-                                                                                                   \
 	static const struct counter_ambiq_config counter_config_##idx = {                          \
 		.instance = (DT_INST_REG_ADDR(idx) - COUNTER_BASE) / DT_INST_REG_SIZE(idx),            \
 		.counter_info = {.max_top_value = UINT32_MAX,                                      \
@@ -265,9 +288,8 @@ static void counter_ambiq_isr(void *arg)
 				 .channels = 1},                                                   \
 		.irq_config_func = counter_irq_config_func_##idx,                                        \
 	};                                                                                         \
-                                                                                                   \
 	DEVICE_DT_INST_DEFINE(idx, counter_ambiq_init, NULL, &counter_data_##idx,                  \
 			      &counter_config_##idx, PRE_KERNEL_1, CONFIG_COUNTER_INIT_PRIORITY,   \
 			      &counter_api);
-
+#endif
 DT_INST_FOREACH_STATUS_OKAY(AMBIQ_COUNTER_INIT);
