@@ -287,7 +287,7 @@
 			#size-cells = <0>;
 
 			gpio: gpio@40010000 {
-				compatible = "ambiq,apollo4-gpio";
+				compatible = "ambiq,gpio";
 				gpio-map-mask = <0xffffffe0 0xffffffc0>;
 				gpio-map-pass-thru = <0x1f 0x3f>;
 				gpio-map = <
@@ -303,7 +303,7 @@
 				ranges;
 
 				gpio0_31: gpio0_31@0 {
-					compatible = "ambiq,apollo4-gpio-bank";
+					compatible = "ambiq,gpio-bank";
 					gpio-controller;
 					#gpio-cells = <2>;
 					reg = <0>;
@@ -312,7 +312,7 @@
 				};
 
 				gpio32_63: gpio32_63@80 {
-					compatible = "ambiq,apollo4-gpio-bank";
+					compatible = "ambiq,gpio-bank";
 					gpio-controller;
 					#gpio-cells = <2>;
 					reg = <0x80>;
@@ -321,7 +321,7 @@
 				};
 
 				gpio64_95: gpio64_95@100 {
-					compatible = "ambiq,apollo4-gpio-bank";
+					compatible = "ambiq,gpio-bank";
 					gpio-controller;
 					#gpio-cells = <2>;
 					reg = <0x100>;
@@ -330,7 +330,7 @@
 				};
 
 				gpio96_127: gpio96_127@180 {
-					compatible = "ambiq,apollo4-gpio-bank";
+					compatible = "ambiq,gpio-bank";
 					gpio-controller;
 					#gpio-cells = <2>;
 					reg = <0x180>;
