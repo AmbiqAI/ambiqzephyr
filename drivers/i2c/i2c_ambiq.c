@@ -188,10 +188,11 @@ static int i2c_ambiq_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 		}
 
 		if (ret != 0) {
-			return ret;
+			goto end;
 		}
 	}
 
+end:
 	k_sem_give(&data->bus_sem);
 
 #if defined(CONFIG_PM_DEVICE_RUNTIME)
@@ -202,7 +203,7 @@ static int i2c_ambiq_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 	}
 #endif
 
-	return 0;
+	return ret;
 }
 
 static int i2c_ambiq_init(const struct device *dev)

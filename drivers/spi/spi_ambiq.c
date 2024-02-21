@@ -284,14 +284,14 @@ static int spi_ambiq_transceive(const struct device *dev, const struct spi_confi
 	ret = spi_config(dev, config);
 
 	if (ret) {
-		spi_context_release(&data->ctx, ret);
-		return ret;
+		goto end;
 	}
 
 	spi_context_buffers_setup(&data->ctx, tx_bufs, rx_bufs, 1);
 
 	ret = spi_ambiq_xfer(dev, config);
 
+end:
 	spi_context_release(&data->ctx, ret);
 
 #if defined(CONFIG_PM_DEVICE_RUNTIME)
