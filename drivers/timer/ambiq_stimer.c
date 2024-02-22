@@ -105,8 +105,9 @@ static void stimer_isr(const void *arg)
 
 		k_spin_unlock(&g_lock, key);
 
-		sys_clock_announce(g_tick_elapsed);
+		uint32_t to_be_announce = g_tick_elapsed;
 		g_tick_elapsed = 0;
+		sys_clock_announce(to_be_announce);
 	}
 }
 
@@ -118,14 +119,26 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 		return;
 	}
 
+	uint32_t ui32ticks;
+
+	/* Convert the data type of ticks, the MAX_TICKS may exceed the 
+	 * maximum int32 value if CYC_PER_TICK=1
+	 */
+	if(ticks == K_TICKS_FOREVER) {
+		ui32ticks = MAX_TICKS;
+	}
+	else if(ticks <= 0) {
+		ui32ticks = 1;
+	}
+	else {
+		ui32ticks = ticks;
+	}
+
 	/* Adjust the ticks to the range of [1, MAX_TICKS]. */
-	ticks = (ticks == K_TICKS_FOREVER) ? MAX_TICKS : ticks;
-	ticks = CLAMP(ticks, 1, (int32_t)MAX_TICKS);
+
+	ui32ticks = CLAMP(ui32ticks, 1, (int32_t)MAX_TICKS);
 
 	k_spinlock_key_t key = k_spin_lock(&g_lock);
-
-	/* Update the internal tick counter*/
-	update_tick_counter();
 
 	/* Get current hardware counter value.*/
 	uint32_t now = am_hal_stimer_counter_get();
@@ -138,7 +151,7 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 	 */
 	uint64_t last = (uint64_t)g_last_time_stamp;
 	uint64_t now_64 = (g_last_time_stamp <= now) ? (uint64_t)now : (uint64_t)now + COUNTER_MAX;
-	uint64_t next = now_64 + ticks * CYC_PER_TICK;
+	uint64_t next = now_64 + ui32ticks * CYC_PER_TICK;
 
 	uint32_t gap = next - last;
 	uint32_t gap_aligned = (gap / CYC_PER_TICK) * CYC_PER_TICK;
