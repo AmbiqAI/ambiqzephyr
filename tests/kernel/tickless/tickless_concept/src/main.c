@@ -12,7 +12,7 @@
 static K_THREAD_STACK_ARRAY_DEFINE(tstack, NUM_THREAD, STACK_SIZE);
 static struct k_thread tdata[NUM_THREAD];
 
-#define IDLE_THRESH 20
+#define IDLE_THRESH 6554
 
 /*sleep duration tickless*/
 #define SLEEP_TICKLESS	 k_ticks_to_ms_floor64(IDLE_THRESH)
@@ -41,8 +41,8 @@ static void thread_tslice(void *p1, void *p2, void *p3)
 {
 	int64_t t = k_uptime_delta(&elapsed_slice);
 
-	TC_PRINT("elapsed slice %" PRId64 ", expected: <%" PRId64 ", %" PRId64 ">\n",
-		t, SLICE_SIZE, SLICE_SIZE_LIMIT);
+	TC_PRINT("elapsed slice %" PRId64 ", expected: <%" PRId64 ", %" PRId64 ">, elapsed slice = %" PRId64 "\n",
+		t, SLICE_SIZE, SLICE_SIZE_LIMIT,elapsed_slice);
 
 	/**TESTPOINT: verify slicing scheduler behaves as expected*/
 	zassert_true(t >= SLICE_SIZE);
