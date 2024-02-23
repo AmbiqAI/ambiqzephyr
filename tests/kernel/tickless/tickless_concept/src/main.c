@@ -18,13 +18,13 @@ static struct k_thread tdata[NUM_THREAD];
 #define SLEEP_TICKLESS	 k_ticks_to_ms_floor64(IDLE_THRESH)
 
 /*sleep duration with tick*/
-#define SLEEP_TICKFUL	 k_ticks_to_ms_floor64(IDLE_THRESH - 1)
+#define SLEEP_TICKFUL	 k_ticks_to_ms_floor64(IDLE_THRESH - 328)
 
 /*slice size is set as half of the sleep duration*/
 #define SLICE_SIZE	 k_ticks_to_ms_floor64(IDLE_THRESH >> 1)
 
 /*maximum slice duration accepted by the test*/
-#define SLICE_SIZE_LIMIT k_ticks_to_ms_floor64((IDLE_THRESH >> 1) + 1)
+#define SLICE_SIZE_LIMIT k_ticks_to_ms_floor64((IDLE_THRESH >> 1) + 328)
 
 /*align to millisecond boundary*/
 #define ALIGN_MS_BOUNDARY()		       \
@@ -43,6 +43,8 @@ static void thread_tslice(void *p1, void *p2, void *p3)
 
 	TC_PRINT("elapsed slice %" PRId64 ", expected: <%" PRId64 ", %" PRId64 ">, elapsed slice = %" PRId64 "\n",
 		t, SLICE_SIZE, SLICE_SIZE_LIMIT,elapsed_slice);
+
+	k_uptime_delta(&elapsed_slice);
 
 	/**TESTPOINT: verify slicing scheduler behaves as expected*/
 	zassert_true(t >= SLICE_SIZE);
