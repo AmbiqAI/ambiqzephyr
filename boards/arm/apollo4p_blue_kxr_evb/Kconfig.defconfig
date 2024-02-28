@@ -36,3 +36,13 @@ config BT_L2CAP_TX_MTU
 	default 247
 
 endif # BT
+
+if LOG
+
+config LOG_BACKEND_UART
+	default y
+
+config LOG_BACKEND_UART_ASYNC
+	default y
+
+endif # LOG

@@ -48,6 +48,12 @@
 		reg = <0x10010000 0x2B0000>;
 	};
 
+	/* RTT */
+	rtt0: rtt_chan0 {
+		compatible = "segger,rtt-uart";
+		status = "disabled";
+	};
+
 	soc {
 		compatible = "ambiq,apollo4p-blue", "ambiq,apollo4x", "simple-bus";
 
