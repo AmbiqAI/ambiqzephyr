@@ -209,7 +209,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		if (spi_context_rx_on(ctx)) {
 			if (!(config->operation & SPI_HALF_DUPLEX)) {
 				uint8_t *tx_dummy = NULL;
-				tx_dummy = k_malloc(ctx->rx_len);
+				tx_dummy = malloc(ctx->rx_len);
 				if (tx_dummy == NULL) {
 					spi_context_complete(ctx, dev, 0);
 					return -ENOMEM;
@@ -222,7 +222,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 				trans.ui32NumBytes = ctx->rx_len;
 				trans.uPeerInfo.ui32SpiChipSelect = iom_nce;
 				ret = am_hal_iom_spi_blocking_fullduplex(data->IOMHandle, &trans);
-				k_free((void *)tx_dummy);
+				free((void *)tx_dummy);
 				spi_context_complete(ctx, dev, 0);
 			} else {
 				/* Set RX direction and receive data. */
@@ -347,7 +347,7 @@ static int spi_ambiq_release(const struct device *dev, const struct spi_config *
 	struct spi_ambiq_data *data = dev->data;
 
 #ifdef CONFIG_SPI_AMBIQ_DMA
-	k_free((void *)data->pDMATCBBuffer);
+	free((void *)data->pDMATCBBuffer);
 #endif
 	if (!sys_read32(SPI_STAT(dev))) {
 		return -EBUSY;
@@ -389,7 +389,7 @@ static int spi_ambiq_init(const struct device *dev)
 	am_hal_iom_interrupt_enable(data->IOMHandle, AM_HAL_IOM_INT_CQUPD | AM_HAL_IOM_INT_ERR);
 	cfg->irq_config_func();
 
-	buf = k_malloc(CONFIG_SPI_DMA_TCB_BUFFER_SIZE * 4);
+	buf = malloc(CONFIG_SPI_DMA_TCB_BUFFER_SIZE * 4);
 	if (buf == NULL) {
 		ret = -ENOMEM;
 		goto end;
@@ -400,7 +400,7 @@ end:
 	if (ret < 0) {
 		am_hal_iom_uninitialize(data->IOMHandle);
 		if (buf != NULL) {
-			k_free((void *)data->pDMATCBBuffer);
+			free((void *)data->pDMATCBBuffer);
 		}
 	} else {
 		spi_context_unlock_unconditionally(&data->ctx);
