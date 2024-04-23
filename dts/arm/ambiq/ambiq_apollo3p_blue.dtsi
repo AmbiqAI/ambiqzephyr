@@ -29,8 +29,8 @@
 			idle: idle {
 				compatible = "zephyr,power-state";
 				power-state-name = "suspend-to-idle";
-				/* As Apollo3blue datasheet, run_to_sleep and sleep_to_run transition 
-				 * time are both lower than 1us, but considering the software overhead 
+				/* As Apollo3blue datasheet, run_to_sleep and sleep_to_run transition
+				 * time are both lower than 1us, but considering the software overhead
 				 * we set a bigger value.
 			     */
 				min-residency-us = <100>;
@@ -40,8 +40,8 @@
 			suspend_to_ram: suspend_to_ram {
 				compatible = "zephyr,power-state";
 				power-state-name = "suspend-to-ram";
-				/* As Apollo3blue datasheet, run_to_deepsleep transition time is lower than 
-				 * 1us and deepsleep_to_run transition time is about 25us, 
+				/* As Apollo3blue datasheet, run_to_deepsleep transition time is lower than
+				 * 1us and deepsleep_to_run transition time is about 25us,
 				 * but considering the software overhead, we set a bigger value.
 			     */
 				min-residency-us = <2000>;
@@ -67,6 +67,24 @@
 	sram0: memory@10010000 {
 		compatible = "mmio-sram";
 		reg = <0x10010000 0xB0000>;
+	};
+
+	xip0: memory@52000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x52000000 0x2000000>;
+		zephyr,memory-region = "XIP0";
+	};
+
+	xip1: memory@54000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x54000000 0x2000000>;
+		zephyr,memory-region = "XIP1";
+	};
+
+	xip2: memory@56000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x56000000 0x2000000>;
+		zephyr,memory-region = "XIP2";
 	};
 
 	soc {
@@ -283,9 +301,10 @@
 			zephyr,pm-device-runtime-auto;
 		};
 
-		mspi0: spi@50014000 {
-			compatible = "ambiq,mspi";
-			reg = <0x50014000 0x400>;
+		mspi0: mspi@50014000 {
+			compatible = "ambiq,mspi-controller";
+			reg = <0x50014000 0x400>,<0x52000000 0x2000000>;
+			clock-frequency = <48000000>;
 			interrupts = <20 0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -293,9 +312,10 @@
 			ambiq,pwrcfg = <&pwrcfg 0x8 0x800>;
 		};
 
-		mspi1: spi@50015000 {
-			compatible = "ambiq,mspi";
-			reg = <0x50015000 0x400>;
+		mspi1: mspi@50015000 {
+			compatible = "ambiq,mspi-controller";
+			reg = <0x50015000 0x400>,<0x54000000 0x2000000>;
+			clock-frequency = <48000000>;
 			interrupts = <32 0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -303,9 +323,10 @@
 			ambiq,pwrcfg = <&pwrcfg 0x8 0x1000>;
 		};
 
-		mspi2: spi@50016000 {
-			compatible = "ambiq,mspi";
-			reg = <0x50016000 0x400>;
+		mspi2: mspi@50016000 {
+			compatible = "ambiq,mspi-controller";
+			clock-frequency = <48000000>;
+			reg = <0x50016000 0x400>,<0x56000000 0x2000000>;
 			interrupts = <33 0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
