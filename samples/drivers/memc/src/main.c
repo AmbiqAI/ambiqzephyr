@@ -6,6 +6,7 @@
 
 #include <zephyr/kernel.h>
 #include <string.h>
+#include <zephyr/drivers/mspi.h>
 
 #if DT_HAS_COMPAT_STATUS_OKAY(nxp_imx_flexspi)
 /* Use memc API to get AHB base address for the device */
@@ -14,6 +15,11 @@
 #define MEMC_PORT DT_REG_ADDR(DT_ALIAS(sram_ext))
 #define MEMC_BASE memc_flexspi_get_ahb_address(FLEXSPI_DEV, MEMC_PORT, 0)
 #define MEMC_SIZE (DT_PROP(DT_ALIAS(sram_ext), size) / 8)
+#elif DT_HAS_COMPAT_STATUS_OKAY(ambiq_mspi_controller)
+#define MSPI_ DT_BUS(DT_ALIAS(psram0))
+#define mspi_get_xip_address(controller) DT_REG_ADDR_BY_IDX(controller, 1)
+#define MEMC_BASE (void *)(mspi_get_xip_address(MSPI_))
+#define MEMC_SIZE (DT_PROP(DT_ALIAS(psram0), size) / 8)
 #endif
 
 void dump_memory(uint8_t *p, uint32_t size)
