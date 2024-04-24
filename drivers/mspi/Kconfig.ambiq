@@ -1,0 +1,22 @@
+# Copyright (c) 2024, Ambiq Micro Inc. <www.ambiq.com>
+# SPDX-License-Identifier: Apache-2.0
+
+config MSPI_AMBIQ_AP3
+	bool "Ambiq Apollo3 series MSPI driver"
+	default n
+	depends on DT_HAS_AMBIQ_MSPI_CONTROLLER_ENABLED
+	select AMBIQ_HAL
+	select AMBIQ_HAL_USE_MSPI
+	select MSPI_XIP
+	select MSPI_SCRAMBLE
+	select MSPI_TIMING
+	help
+	  Enable driver for Ambiq MSPI.
+
+DT_CHOSEN_Z_SRAM := zephyr,sram
+
+config MSPI_BUFF_RAM_LOCATION
+	hex "byte offset to SRAM_BASE_ADDRESS"
+	default 0x50000
+	help
+	  This option specifies the mspi buffer/heap start address
