@@ -142,7 +142,14 @@ manifest:
       groups:
         - hal
     - name: hal_ambiq
-      revision: pull/11/head
+      # revision: ff4ca358d730536addf336c40c3faa4ebf1df00a
+      # To use the main Zephyr hal
+      # uncomment the line below
+      # revision: 323048f916faa84cebcf6dfd73e606d8cf64107a
+      # and comment out the next 2 lines
+      # then run west update.
+      url: https://github.com/AmbiqMicro/ambiqhal_ambiq
+      revision: d0cc38fa9a85c4f48e8f2f58da892d90273d2c39
       path: modules/hal/ambiq
       groups:
         - hal

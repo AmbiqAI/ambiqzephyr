@@ -109,3 +109,16 @@ child-binding:
         default: 0
         description: |
           IOM nCE module select. The default value is reset value.
+      ambiq,iom-mspi:
+        type: int
+        default: 0
+        description: |
+          Indicates the module which uses specific CE pin, 1 if CE is IOM, 0 if MSPI.
+          The default value is 0.
+      ambiq,iom-num:
+        type: int
+        default: 0
+        description: |
+          Indicates the instance which uses specific CE pin.
+          IOM number (0-5) or MSPI (0-2).
+          The default value is 0.
