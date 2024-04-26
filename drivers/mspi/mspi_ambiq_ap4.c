@@ -658,15 +658,15 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 		}
 
 	} else {
-		if (data->dev_id != dev_id) {
+//		if (data->dev_id != dev_id) {
 // TODO:
-			// ret = pinctrl_apply_state(cfg->pcfg,
-			// 			  PINCTRL_STATE_PRIV_START + dev_id->dev_idx);
-			ret = pinctrl_apply_state(cfg->pcfg, dev_id->dev_idx);
-			if (ret) {
-				goto e_return;
-			}
-		}
+//			ret = pinctrl_apply_state(cfg->pcfg,
+//						  PINCTRL_STATE_PRIV_START + dev_id->dev_idx);
+//			ret = pinctrl_apply_state(cfg->pcfg, dev_id->dev_idx);
+//			if (ret) {
+//				goto e_return;
+//			}
+//		}
 
 		if (dev_cfg->eEndian != MSPI_XFER_LITTLE_ENDIAN) {
 			LOG_INST_ERR(cfg->log, "%u, only support MSB first.", __LINE__);
