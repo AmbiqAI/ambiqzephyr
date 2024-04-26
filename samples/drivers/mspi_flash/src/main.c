@@ -74,6 +74,7 @@ int single_sector_test(const struct device *flash_dev)
 			++rp;
 			++wp;
 		}
+		return 1;
 	}
 	return rc;
 }
@@ -157,6 +158,7 @@ int multi_sector_test(const struct device *flash_dev)
 				++rp;
 				++wp;
 			}
+			return 1;
 		}
 		offs += SPI_FLASH_SECTOR_SIZE;
 	}

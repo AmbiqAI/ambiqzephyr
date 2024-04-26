@@ -29,6 +29,44 @@ LOG_MODULE_REGISTER(mspi_ambiq_ap4);
 typedef int (*mspi_ambiq_pwr_func_t)(void);
 typedef void (*irq_config_func_t)(void);
 
+am_hal_mspi_timing_scan_t g_sApplyCfg =
+{
+	.bTxNeg            = 1,
+	.bRxNeg            = 0,
+	.bRxCap            = 0,
+	.ui8TxDQSDelay     = 1,
+	.ui8RxDQSDelay     = 18,
+	.ui8Turnaround     = 6,
+};
+
+am_hal_mspi_rxcfg_t g_sAtxp032MspiRxCfg =
+{
+	.ui8DQSturn         = 2,
+	.bRxHI              = 0,
+	.bTaForth           = 0,
+	.bHyperIO           = 0,
+	.ui8RxSmp           = 1,
+	.bRBX               = 0,
+	.bWBX               = 0,
+	.bSCLKRxHalt        = 0,
+	.bRxCapEXT          = 0,
+	.ui8Sfturn          = 0,
+};
+
+am_hal_mspi_dqs_t g_sAtxp032DqsCfg =
+{
+	.bDQSEnable             = false,
+	.bDQSSyncNeg            = 0,
+	.bEnableFineDelay       = 0,
+	.ui8TxDQSDelay          = 0,
+	.ui8RxDQSDelay          = 16,
+	.ui8RxDQSDelayNeg       = 0,
+	.bRxDQSDelayNegEN       = 0,
+	.ui8RxDQSDelayHi        = 0,
+	.ui8RxDQSDelayNegHi     = 0,
+	.bRxDQSDelayHiEN        = 0,
+};
+
 struct mspi_context {
 	const struct mspi_dev_id      *owner;
 
@@ -255,8 +293,10 @@ static inline int mspi_verify_device(const struct device *controller,
 		}
 	}
 
-	if (device_index >= cfg->mspicfg.ui32SlaveNum ||
-	    device_index != dev_id->dev_idx) {
+// TODO:
+//	if (device_index >= cfg->mspicfg.ui32SlaveNum ||
+	if (device_index > cfg->mspicfg.ui32SlaveNum ||
+		device_index != dev_id->dev_idx) {
 		LOG_INST_ERR(cfg->log, "%u, invalid device ID.", __LINE__);
 		return -ENODEV;
 	}
@@ -619,8 +659,10 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 
 	} else {
 		if (data->dev_id != dev_id) {
-			ret = pinctrl_apply_state(cfg->pcfg,
-						  PINCTRL_STATE_PRIV_START + dev_id->dev_idx);
+// TODO:
+			// ret = pinctrl_apply_state(cfg->pcfg,
+			// 			  PINCTRL_STATE_PRIV_START + dev_id->dev_idx);
+			ret = pinctrl_apply_state(cfg->pcfg, dev_id->dev_idx);
 			if (ret) {
 				goto e_return;
 			}
@@ -705,6 +747,22 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 		if (ret) {
 			LOG_INST_ERR(cfg->log, "%u, fail to configure MSPI, code:%d.", __LINE__,
 				     ret);
+			ret = -EHOSTDOWN;
+			goto e_return;
+		}
+
+		am_hal_mspi_dqs_t dqsCfg = g_sAtxp032DqsCfg;
+		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_DQS, &dqsCfg);
+		if (ret) {
+			LOG_INST_ERR(cfg->log, "%u, failed AM_HAL_MSPI_REQ_DQS, code:%d.", __LINE__, ret);
+			ret = -EHOSTDOWN;
+			goto e_return;
+		}
+
+		am_hal_mspi_rxcfg_t RxCfg = g_sAtxp032MspiRxCfg;
+		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_RXCFG, &RxCfg);
+		if (ret) {
+			LOG_INST_ERR(cfg->log, "%u, failed AM_HAL_MSPI_REQ_RXCFG, code:%d.", __LINE__, ret);
 			ret = -EHOSTDOWN;
 			goto e_return;
 		}

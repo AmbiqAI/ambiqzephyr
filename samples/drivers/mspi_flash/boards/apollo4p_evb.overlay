@@ -26,8 +26,8 @@
     pinctrl-names = "default","sleep","flash";
     status = "okay";
 
-    ce-gpios = <&gpio64_95 25 GPIO_ACTIVE_LOW>,
-                <&gpio64_95 27 GPIO_ACTIVE_LOW>;
+    ce-gpios = <&gpio64_95 23 GPIO_ACTIVE_LOW>,
+                <&gpio64_95 25 GPIO_ACTIVE_LOW>;
 
     cmdq-buffer-location = ".mspi_buff";
     cmdq-buffer-size = <256>;
@@ -80,19 +80,15 @@
 				 <MSPI1_6_P43>,
 				 <MSPI1_7_P44>;
             drive-strength = "0.75";
-            ambiq,iom-num = <1>;
 		};
         group2 {
             pinmux = <MSPI1_8_P45>;
             drive-strength = "1.0";
-            ambiq,iom-nce-module = <0>;
-            ambiq,iom-num = <1>;
         };
 		group3 {
 			pinmux = <NCE89_P89>;
 			drive-strength = "1.0";
-			ambiq,iom-nce-module = <0>;
-            ambiq,iom-num = <1>;
+			ambiq,iom-nce-module = <34>;
 		};
 	};
 };

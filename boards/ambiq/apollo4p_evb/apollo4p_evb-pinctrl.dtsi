@@ -188,11 +188,11 @@
 				 <MSPI1_7_P44>,
 				 <MSPI1_8_P45>;
 				};
-        group2 {
+		group2 {
 			pinmux = <NCE89_P89>;
-			drive-strength = "1.0";
-			ambiq,iom-nce-module = <0>;
-            ambiq,iom-num = <1>;
+			drive-push-pull;
+			drive-strength = "0.5";
+			ambiq,iom-nce-module = <34>;
 		};
 	};
 	mspi2_default: mspi2_default{
