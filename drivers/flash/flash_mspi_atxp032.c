@@ -631,8 +631,9 @@ static int flash_mspi_atxp032_init(const struct device *flash)
 
 	if (flash_mspi_atxp032_get_vendor_id(flash, &vendor_id)) {
 		LOG_ERR("Could not read vendor id/%u", __LINE__);
-		return -EIO;
+//		return -EIO;
 	}
+
 	LOG_DBG("Vendor id: 0x%0x", vendor_id);
 	if (vendor_id != ATXP032_VENDOR_ID) {
 		LOG_WRN("Vendor ID does not match expected value of 0x%0x/%u", ATXP032_VENDOR_ID,
