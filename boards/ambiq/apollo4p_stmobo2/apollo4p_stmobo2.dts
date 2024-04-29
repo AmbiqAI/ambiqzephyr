@@ -1,0 +1,120 @@
+/dts-v1/;
+#include <ambiq/ambiq_apollo4p.dtsi>
+
+#include "apollo4p_stmobo2-pinctrl.dtsi"
+#include <zephyr/dt-bindings/flash_controller/ospi.h>
+
+/ {
+	model = "Ambiq Apollo4 Plus evaluation board";
+	compatible = "ambiq,apollo4p_stmobo2";
+
+	chosen {
+		zephyr,itcm = &tcm;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,console = &uart3;
+		zephyr,shell-uart = &uart3;
+		zephyr,uart-pipe = &uart3;
+	};
+
+	aliases {
+		watchdog0 = &wdt0;
+		led0 = &led0;
+		led1 = &led1;
+		led2 = &led2;
+		sw0 = &button0;
+		sw1 = &button1;
+		accel0 = &adxl362;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		led0: led_0 {
+			gpios = <&gpio0_31 30 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "LED 0";
+		};
+		led1: led_1 {
+			gpios = <&gpio64_95 26 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "LED 1";
+		};
+		led2: led_2 {
+			gpios = <&gpio96_127 1 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "LED 2";
+		};
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			gpios = <&gpio0_31 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "BTN0";
+		};
+		button1: button_1 {
+			gpios = <&gpio0_31 19 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "BTN1";
+		};
+	};
+};
+
+&uart3 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart3_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&counter0 {
+	status = "okay";
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&iom0_i2c {
+	compatible = "ambiq,i2c";
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	status = "okay";
+};
+
+&iom4_spi {
+	compatible = "ambiq,spi";
+	pinctrl-0 = <&spi4_default>;
+	pinctrl-names = "default";
+	clock-frequency = <DT_FREQ_M(48)>;
+	status = "okay";
+};
+
+&iom7_spi {
+	compatible = "ambiq,spi";
+	pinctrl-0 = <&spi7_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio64_95 90 GPIO_ACTIVE_LOW>;
+	clock-frequency = <DT_FREQ_M(1)>;
+	status = "okay";
+
+	adxl362: adxl362@0 {
+		compatible = "adi,adxl362";
+		reg = <0>;
+		spi-max-frequency = <DT_FREQ_M(1)>;
+	};
+};
+
+
+&gpio0_31 {
+	status = "okay";
+};
+
+&gpio32_63 {
+	status = "okay";
+};
+
+&gpio64_95 {
+	status = "okay";
+};
+
+&gpio96_127 {
+	status = "okay";
+};
