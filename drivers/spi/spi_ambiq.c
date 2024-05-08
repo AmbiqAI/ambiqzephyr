@@ -182,31 +182,30 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		trans.ui32InstrLen = 1;
 		spi_context_update_tx(ctx, 1, 1);
 
-		/* More instruction bytes to send */
-		if (ctx->tx_len > 0) {
-			/*
-			 * The instruction length can only be:
-			 *	0~AM_HAL_IOM_MAX_OFFSETSIZE.
-			 */
-			if (ctx->tx_len > AM_HAL_IOM_MAX_OFFSETSIZE - 1) {
-				spi_context_complete(ctx, dev, 0);
-				return -ENOTSUP;
-			}
-
-			/* Put the remaining TX data in instruction. */
-			trans.ui32InstrLen += ctx->tx_len;
-			for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
-#if defined(CONFIG_SOC_SERIES_APOLLO3X)
-				trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
-#else
-				trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
-#endif
-				spi_context_update_tx(ctx, 1, 1);
-			}
-		}
-
 		/* There's data to Receive */
 		if (spi_context_rx_on(ctx)) {
+			/* More instruction bytes to send */
+			if (ctx->tx_len > 0) {
+				/*
+				 * The instruction length can only be:
+				 *  0~AM_HAL_IOM_MAX_OFFSETSIZE.
+				 */
+				if (ctx->tx_len > AM_HAL_IOM_MAX_OFFSETSIZE - 1) {
+					spi_context_complete(ctx, dev, 0);
+					return -ENOTSUP;
+				}
+
+				/* Put the remaining TX data in instruction. */
+				trans.ui32InstrLen += ctx->tx_len;
+				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+					trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
+#else
+					trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
+#endif
+					spi_context_update_tx(ctx, 1, 1);
+				}
+			}
 			if (!(config->operation & SPI_HALF_DUPLEX)) {
 				uint8_t *tx_dummy = NULL;
 				tx_dummy = malloc(ctx->rx_len);
@@ -216,7 +215,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 				}
 				memset(tx_dummy, 0, ctx->rx_len);
 				trans.eDirection = AM_HAL_IOM_FULLDUPLEX;
-				trans.bContinue = false;
+				trans.bContinue = bContinue;
 				trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
 				trans.pui32TxBuffer = (uint32_t *)tx_dummy;
 				trans.ui32NumBytes = ctx->rx_len;
