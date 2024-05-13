@@ -156,7 +156,8 @@ static int spi_config(const struct device *dev, const struct spi_config *config)
 	return ret;
 }
 
-static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *config)
+static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *config,
+			  const struct spi_buf_set *tx_bufs, const struct spi_buf_set *rx_bufs)
 {
 	struct spi_ambiq_data *data = dev->data;
 	const struct spi_ambiq_config *cfg = dev->config;
@@ -194,7 +195,6 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 					spi_context_complete(ctx, dev, 0);
 					return -ENOTSUP;
 				}
-
 				/* Put the remaining TX data in instruction. */
 				trans.ui32InstrLen += ctx->tx_len;
 				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
@@ -204,6 +204,10 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 					trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
 #endif
 					spi_context_update_tx(ctx, 1, 1);
+				}
+				/* Skip the cmd buffer for rx. */
+				if (rx_bufs->count > 1) {
+					spi_context_update_rx(ctx, 1, rx_bufs->buffers[0].len);
 				}
 			}
 			if (!(config->operation & SPI_HALF_DUPLEX)) {
@@ -244,6 +248,26 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 #endif
 			}
 		} else { /* There's no data to Receive */
+			if (tx_bufs->count > 1) {
+				/*
+				 * The instruction length can only be:
+				 *  0~AM_HAL_IOM_MAX_OFFSETSIZE.
+				 */
+				if (ctx->tx_len > AM_HAL_IOM_MAX_OFFSETSIZE - 1) {
+					spi_context_complete(ctx, dev, 0);
+					return -ENOTSUP;
+				}
+				/* Put the remaining TX data in instruction. */
+				trans.ui32InstrLen += ctx->tx_len;
+				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+					trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
+#else
+					trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
+#endif
+					spi_context_update_tx(ctx, 1, 1);
+				}
+			}
 			/* Set TX direction to send data. */
 			trans.eDirection = AM_HAL_IOM_TX;
 			trans.bContinue = bContinue;
@@ -265,6 +289,10 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 #endif
 		}
 	} else { /* There's no data to send */
+		/* Skip the cmd buffer for rx. */
+		if (rx_bufs->count > 1) {
+			spi_context_update_rx(ctx, 1, rx_bufs->buffers[0].len);
+		}
 		/* Set RX direction to receive data and release CS after transmission. */
 		trans.eDirection = AM_HAL_IOM_RX;
 		trans.bContinue = bContinue;
@@ -319,7 +347,7 @@ static int spi_ambiq_transceive(const struct device *dev, const struct spi_confi
 
 	spi_context_buffers_setup(&data->ctx, tx_bufs, rx_bufs, 1);
 
-	ret = spi_ambiq_xfer(dev, config);
+	ret = spi_ambiq_xfer(dev, config, tx_bufs, rx_bufs);
 
 end:
 	spi_context_release(&data->ctx, ret);
