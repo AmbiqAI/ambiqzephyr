@@ -45,10 +45,12 @@ struct i2c_ambiq_data {
 	struct k_sem transfer_sem;
 	i2c_ambiq_callback_t callback;
 	void *callback_data;
-	uint32_t *pDMATCBBuffer;
 };
 
 #ifdef CONFIG_I2C_AMBIQ_DMA
+static __aligned(32) uint32_t I2CDMATCBBuffer[CONFIG_I2C_DMA_TCB_BUFFER_SIZE]
+	__attribute__((__section__(".nocache")));
+
 static void pfnI2C_Callback(void *pCallbackCtxt, uint32_t status)
 {
 	const struct device *dev = pCallbackCtxt;
@@ -150,7 +152,7 @@ static int i2c_ambiq_configure(const struct device *dev, uint32_t dev_config)
 	}
 
 #ifdef CONFIG_I2C_AMBIQ_DMA
-	data->iom_cfg.pNBTxnBuf = data->pDMATCBBuffer;
+	data->iom_cfg.pNBTxnBuf = I2CDMATCBBuffer;
 	data->iom_cfg.ui32NBTxnBufLength = CONFIG_I2C_DMA_TCB_BUFFER_SIZE;
 #endif
 
@@ -215,7 +217,6 @@ static int i2c_ambiq_init(const struct device *dev)
 	const struct i2c_ambiq_config *config = dev->config;
 	uint32_t bitrate_cfg = i2c_map_dt_bitrate(config->bitrate);
 	int ret = 0;
-	void *buf = NULL;
 
 	data->iom_cfg.eInterfaceMode = AM_HAL_IOM_I2C_MODE;
 
@@ -227,15 +228,6 @@ static int i2c_ambiq_init(const struct device *dev)
 	}
 
 	config->pwr_func();
-
-#ifdef CONFIG_I2C_AMBIQ_DMA
-	buf = k_malloc(CONFIG_I2C_DMA_TCB_BUFFER_SIZE * 4);
-	if (buf == NULL) {
-		ret = -ENOMEM;
-		goto end;
-	}
-	data->pDMATCBBuffer = (uint32_t *)buf;
-#endif
 
 	ret = i2c_ambiq_configure(dev, I2C_MODE_CONTROLLER | bitrate_cfg);
 	if (ret < 0) {
@@ -262,9 +254,6 @@ static int i2c_ambiq_init(const struct device *dev)
 end:
 	if (ret < 0) {
 		am_hal_iom_uninitialize(data->IOMHandle);
-		if (buf != NULL) {
-			k_free((void *)data->pDMATCBBuffer);
-		}
 	}
 	return ret;
 }
@@ -275,8 +264,7 @@ static const struct i2c_driver_api i2c_ambiq_driver_api = {
 };
 
 #ifdef CONFIG_PM_DEVICE
-static int i2c_ambiq_pm_action(const struct device *dev,
-			       enum pm_device_action action)
+static int i2c_ambiq_pm_action(const struct device *dev, enum pm_device_action action)
 {
 	struct i2c_ambiq_data *data = dev->data;
 	uint32_t ret;
@@ -295,12 +283,9 @@ static int i2c_ambiq_pm_action(const struct device *dev,
 
 	ret = am_hal_iom_power_ctrl(data->IOMHandle, status, true);
 
-	if(ret != AM_HAL_STATUS_SUCCESS)
-	{
+	if (ret != AM_HAL_STATUS_SUCCESS) {
 		return -EPERM;
-	}
-	else
-	{
+	} else {
 		return 0;
 	}
 }
@@ -333,7 +318,7 @@ static int i2c_ambiq_pm_action(const struct device *dev,
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.irq_config_func = i2c_irq_config_func_##n,                                        \
 		.pwr_func = pwr_on_ambiq_i2c_##n};                                                 \
-	PM_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_pm_action);                                      \
+	PM_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_pm_action);                                          \
 	I2C_DEVICE_DT_INST_DEFINE(n, i2c_ambiq_init, PM_DEVICE_DT_INST_GET(n), &i2c_ambiq_data##n, \
 				  &i2c_ambiq_config##n, POST_KERNEL, CONFIG_I2C_INIT_PRIORITY,     \
 				  &i2c_ambiq_driver_api);

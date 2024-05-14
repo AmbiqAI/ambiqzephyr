@@ -39,7 +39,6 @@ struct spi_ambiq_data {
 	struct spi_context ctx;
 	am_hal_iom_config_t iom_cfg;
 	void *IOMHandle;
-	uint32_t *pDMATCBBuffer;
 };
 
 #define SPI_BASE (((const struct spi_ambiq_config *)(dev)->config)->base)
@@ -55,6 +54,9 @@ struct spi_ambiq_data {
 #define SPI_CS_INDEX 3
 
 #ifdef CONFIG_SPI_AMBIQ_DMA
+static __aligned(32) uint32_t SPIDMATCBBuffer[CONFIG_SPI_DMA_TCB_BUFFER_SIZE]
+	__attribute__((__section__(".nocache")));
+
 static void pfnSPI_Callback(void *pCallbackCtxt, uint32_t status)
 {
 	const struct device *dev = pCallbackCtxt;
@@ -142,7 +144,7 @@ static int spi_config(const struct device *dev, const struct spi_config *config)
 	ctx->config = config;
 
 #ifdef CONFIG_SPI_AMBIQ_DMA
-	data->iom_cfg.pNBTxnBuf = data->pDMATCBBuffer;
+	data->iom_cfg.pNBTxnBuf = SPIDMATCBBuffer;
 	data->iom_cfg.ui32NBTxnBufLength = CONFIG_SPI_DMA_TCB_BUFFER_SIZE;
 #endif
 
@@ -199,22 +201,14 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 					spi_context_update_rx(ctx, 1, rx_bufs->buffers[0].len);
 				}
 			}
-			if (!(config->operation & SPI_HALF_DUPLEX)) {
-				uint8_t *tx_dummy = NULL;
-				tx_dummy = malloc(ctx->rx_len);
-				if (tx_dummy == NULL) {
-					spi_context_complete(ctx, dev, 0);
-					return -ENOMEM;
-				}
-				memset(tx_dummy, 0, ctx->rx_len);
+			if ((!(config->operation & SPI_HALF_DUPLEX)) && (spi_context_tx_on(ctx))) {
 				trans.eDirection = AM_HAL_IOM_FULLDUPLEX;
-				trans.bContinue = true;
+				trans.bContinue = bContinue;
 				trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
-				trans.pui32TxBuffer = (uint32_t *)tx_dummy;
-				trans.ui32NumBytes = ctx->rx_len;
+				trans.pui32TxBuffer = (uint32_t *)ctx->tx_buf;
+				trans.ui32NumBytes = MIN(ctx->rx_len, ctx->tx_len);
 				trans.uPeerInfo.ui32SpiChipSelect = iom_nce;
 				ret = am_hal_iom_spi_blocking_fullduplex(data->IOMHandle, &trans);
-				free((void *)tx_dummy);
 				spi_context_complete(ctx, dev, 0);
 			} else {
 				/* Set RX direction and receive data. */
@@ -380,9 +374,6 @@ static int spi_ambiq_release(const struct device *dev, const struct spi_config *
 {
 	struct spi_ambiq_data *data = dev->data;
 
-#ifdef CONFIG_SPI_AMBIQ_DMA
-	free((void *)data->pDMATCBBuffer);
-#endif
 	if (!sys_read32(SPI_STAT(dev))) {
 		return -EBUSY;
 	}
@@ -402,7 +393,6 @@ static int spi_ambiq_init(const struct device *dev)
 	struct spi_ambiq_data *data = dev->data;
 	const struct spi_ambiq_config *cfg = dev->config;
 	int ret = 0;
-	void *buf = NULL;
 
 	if (AM_HAL_STATUS_SUCCESS !=
 	    am_hal_iom_initialize((cfg->base - REG_IOM_BASEADDR) / cfg->size, &data->IOMHandle)) {
@@ -422,20 +412,10 @@ static int spi_ambiq_init(const struct device *dev)
 	am_hal_iom_interrupt_clear(data->IOMHandle, AM_HAL_IOM_INT_CQUPD | AM_HAL_IOM_INT_ERR);
 	am_hal_iom_interrupt_enable(data->IOMHandle, AM_HAL_IOM_INT_CQUPD | AM_HAL_IOM_INT_ERR);
 	cfg->irq_config_func();
-
-	buf = malloc(CONFIG_SPI_DMA_TCB_BUFFER_SIZE * 4);
-	if (buf == NULL) {
-		ret = -ENOMEM;
-		goto end;
-	}
-	data->pDMATCBBuffer = (uint32_t *)buf;
 #endif
 end:
 	if (ret < 0) {
 		am_hal_iom_uninitialize(data->IOMHandle);
-		if (buf != NULL) {
-			free((void *)data->pDMATCBBuffer);
-		}
 	} else {
 		spi_context_unlock_unconditionally(&data->ctx);
 	}
