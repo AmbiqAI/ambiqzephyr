@@ -163,6 +163,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 	const struct spi_ambiq_config *cfg = dev->config;
 	struct spi_context *ctx = &data->ctx;
 	int ret = 0;
+	static bool bPreContinue;
 	bool bContinue = (config->operation & SPI_HOLD_ON_CS) ? true : false;
 
 	am_hal_iom_transfer_t trans = {0};
@@ -174,30 +175,18 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 
 	/* There's data to send */
 	if (spi_context_tx_on(ctx)) {
-		/* Push one byte instruction in default */
-#if defined(CONFIG_SOC_SERIES_APOLLO3X)
-		trans.ui32Instr = *ctx->tx_buf;
-#else
-		trans.ui64Instr = *ctx->tx_buf;
-#endif
-		trans.ui32InstrLen = 1;
-		spi_context_update_tx(ctx, 1, 1);
-
 		/* There's data to Receive */
 		if (spi_context_rx_on(ctx)) {
-			/* More instruction bytes to send */
-			if (ctx->tx_len > 0) {
+			/* Only need instruction in the first packet */
+			if (!bPreContinue) {
 				/*
 				 * The instruction length can only be:
 				 *  0~AM_HAL_IOM_MAX_OFFSETSIZE.
 				 */
-				if (ctx->tx_len > AM_HAL_IOM_MAX_OFFSETSIZE - 1) {
-					spi_context_complete(ctx, dev, 0);
-					return -ENOTSUP;
-				}
-				/* Put the remaining TX data in instruction. */
-				trans.ui32InstrLen += ctx->tx_len;
-				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
+				trans.ui32InstrLen = (ctx->tx_len <= AM_HAL_IOM_MAX_OFFSETSIZE)
+							     ? ctx->tx_len
+							     : AM_HAL_IOM_MAX_OFFSETSIZE;
+				for (int i = 0; i < trans.ui32InstrLen; i++) {
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
 					trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
 #else
@@ -219,7 +208,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 				}
 				memset(tx_dummy, 0, ctx->rx_len);
 				trans.eDirection = AM_HAL_IOM_FULLDUPLEX;
-				trans.bContinue = bContinue;
+				trans.bContinue = true;
 				trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
 				trans.pui32TxBuffer = (uint32_t *)tx_dummy;
 				trans.ui32NumBytes = ctx->rx_len;
@@ -248,72 +237,90 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 #endif
 			}
 		} else { /* There's no data to Receive */
-			if (tx_bufs->count > 1) {
-				/*
-				 * The instruction length can only be:
-				 *  0~AM_HAL_IOM_MAX_OFFSETSIZE.
-				 */
-				if (ctx->tx_len > AM_HAL_IOM_MAX_OFFSETSIZE - 1) {
-					spi_context_complete(ctx, dev, 0);
-					return -ENOTSUP;
-				}
-				/* Put the remaining TX data in instruction. */
-				trans.ui32InstrLen += ctx->tx_len;
-				for (int i = 0; i < trans.ui32InstrLen - 1; i++) {
-#if defined(CONFIG_SOC_SERIES_APOLLO3X)
-					trans.ui32Instr = (trans.ui32Instr << 8) | (*ctx->tx_buf);
-#else
-					trans.ui64Instr = (trans.ui64Instr << 8) | (*ctx->tx_buf);
-#endif
-					spi_context_update_tx(ctx, 1, 1);
-				}
-			}
-			/* Set TX direction to send data. */
-			trans.eDirection = AM_HAL_IOM_TX;
-			trans.bContinue = bContinue;
-			trans.ui32NumBytes = ctx->tx_len;
-			trans.pui32TxBuffer = (uint32_t *)ctx->tx_buf;
-			trans.uPeerInfo.ui32SpiChipSelect = iom_nce;
+			bool bLast = false;
+			uint32_t ui32RemNum, ui32CurNum = 0;
+			for (size_t i = 0; i < tx_bufs->count; i++) {
+				trans.eDirection = AM_HAL_IOM_TX;
+				trans.uPeerInfo.ui32SpiChipSelect = iom_nce;
+				ui32RemNum = ctx->tx_len;
+				while (ui32RemNum) {
+					ui32CurNum = (ui32RemNum > AM_HAL_IOM_MAX_TXNSIZE_SPI)
+							     ? AM_HAL_IOM_MAX_TXNSIZE_SPI
+							     : ui32RemNum;
+					if ((i == (tx_bufs->count - 1)) &&
+					    (ui32CurNum == ui32RemNum)) {
+						bLast = true;
+					}
+					trans.bContinue = (bLast == true) ? bContinue : true;
+					trans.ui32NumBytes = ui32CurNum;
+					trans.pui32TxBuffer = (uint32_t *)ctx->tx_buf;
 #ifdef CONFIG_SPI_AMBIQ_DMA
-			if (AM_HAL_STATUS_SUCCESS !=
-			    am_hal_iom_nonblocking_transfer(data->IOMHandle, &trans,
-							    pfnSPI_Callback, (void *)dev)) {
-				spi_context_complete(ctx, dev, 0);
-				return -EIO;
-			}
-
-			ret = spi_context_wait_for_completion(ctx);
+					if (AM_HAL_STATUS_SUCCESS !=
+					    am_hal_iom_nonblocking_transfer(
+						    data->IOMHandle, &trans,
+						    ((bLast == true) ? pfnSPI_Callback : NULL),
+						    (void *)dev)) {
+						spi_context_complete(ctx, dev, 0);
+						return -EIO;
+					}
+					if (bLast) {
+						ret = spi_context_wait_for_completion(ctx);
+					}
 #else
-			ret = am_hal_iom_blocking_transfer(data->IOMHandle, &trans);
-			spi_context_complete(ctx, dev, 0);
+					ret = am_hal_iom_blocking_transfer(data->IOMHandle, &trans);
+					if (bLast) {
+						spi_context_complete(ctx, dev, 0);
+					}
 #endif
+					ui32RemNum -= ui32CurNum;
+					spi_context_update_tx(ctx, 1, ui32CurNum);
+				}
+			}
 		}
 	} else { /* There's no data to send */
 		/* Skip the cmd buffer for rx. */
 		if (rx_bufs->count > 1) {
 			spi_context_update_rx(ctx, 1, rx_bufs->buffers[0].len);
 		}
-		/* Set RX direction to receive data and release CS after transmission. */
+		bool bLast = false;
+		uint32_t ui32CurNum = 0;
+		uint32_t ui32RemNum = ctx->rx_len;
 		trans.eDirection = AM_HAL_IOM_RX;
-		trans.bContinue = bContinue;
-		trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
-		trans.ui32NumBytes = ctx->rx_len;
 		trans.uPeerInfo.ui32SpiChipSelect = iom_nce;
+		while (ui32RemNum) {
+			ui32CurNum = (ui32RemNum > AM_HAL_IOM_MAX_TXNSIZE_SPI)
+					     ? AM_HAL_IOM_MAX_TXNSIZE_SPI
+					     : ui32RemNum;
+			if (ui32CurNum == ui32RemNum) {
+				bLast = true;
+			}
+			/* Set RX direction to receive data and release CS after transmission. */
+			trans.bContinue = (bLast == true) ? bContinue : true;
+			trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
+			trans.ui32NumBytes = ui32CurNum;
 #ifdef CONFIG_SPI_AMBIQ_DMA
-		if (AM_HAL_STATUS_SUCCESS !=
-		    am_hal_iom_nonblocking_transfer(data->IOMHandle, &trans, pfnSPI_Callback,
-						    (void *)dev)) {
-			spi_context_complete(ctx, dev, 0);
-			return -EIO;
-		}
-
-		ret = spi_context_wait_for_completion(ctx);
+			if (AM_HAL_STATUS_SUCCESS !=
+			    am_hal_iom_nonblocking_transfer(
+				    data->IOMHandle, &trans,
+				    ((bLast == true) ? pfnSPI_Callback : NULL), (void *)dev)) {
+				spi_context_complete(ctx, dev, 0);
+				return -EIO;
+			}
+			if (bLast) {
+				ret = spi_context_wait_for_completion(ctx);
+			}
 #else
-		ret = am_hal_iom_blocking_transfer(data->IOMHandle, &trans);
-		spi_context_complete(ctx, dev, 0);
+			ret = am_hal_iom_blocking_transfer(data->IOMHandle, &trans);
+			if (bLast) {
+				spi_context_complete(ctx, dev, 0);
+			}
 #endif
+			ui32RemNum -= ui32CurNum;
+			spi_context_update_rx(ctx, 1, ui32CurNum);
+		}
 	}
 
+	bPreContinue = bContinue;
 	return ret;
 }
 
