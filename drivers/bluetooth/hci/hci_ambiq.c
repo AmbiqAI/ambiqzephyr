@@ -59,7 +59,7 @@ static uint8_t __noinit rxmsg[SPI_MAX_RX_MSG_LEN];
 static const struct device *spi_dev = DEVICE_DT_GET(SPI_DEV_NODE);
 static struct spi_config spi_cfg = {
 	.operation = SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | SPI_MODE_CPOL | SPI_MODE_CPHA |
-		     SPI_WORD_SET(8),
+		     SPI_HALF_DUPLEX | SPI_WORD_SET(8),
 };
 static K_KERNEL_STACK_DEFINE(spi_rx_stack, CONFIG_BT_DRV_RX_STACK_SIZE);
 static struct k_thread spi_rx_thread_data;
@@ -85,6 +85,18 @@ static inline int bt_spi_transceive(void *tx, uint32_t tx_len, void *rx, uint32_
 	spi_tx_buf.len = (size_t)tx_len;
 	spi_rx_buf.buf = rx;
 	spi_rx_buf.len = (size_t)rx_len;
+
+	/* Before sending packet to controller the host needs to poll the status of
+	 * controller to know it's ready, or before reading packets from controller
+	 * the host needs to get the payload size of coming packets by sending specific
+	 * command and putting the status or size to the rx buffer, the CS should be
+	 * held at this moment to continue to send or receive packets.
+	 */
+	if (tx_len && rx_len) {
+		spi_cfg.operation |= SPI_HOLD_ON_CS;
+	} else {
+		spi_cfg.operation &= ~SPI_HOLD_ON_CS;
+	}
 	return spi_transceive(spi_dev, &spi_cfg, &spi_tx, &spi_rx);
 }
 
