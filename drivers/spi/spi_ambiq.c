@@ -307,7 +307,9 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		spi_context_complete(ctx, dev, ret);
 	}
 #endif
-	data->pre_cont = cur_cont;
+    if (!ret) {
+    	data->pre_cont = cur_cont;
+    }
 	return ret;
 }
 
