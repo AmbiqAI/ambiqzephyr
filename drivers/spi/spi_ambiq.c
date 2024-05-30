@@ -193,10 +193,6 @@ static int spi_ambiq_xfer_half_duplex(const struct device *dev, am_hal_iom_dir_e
 		trans.eDirection = AM_HAL_IOM_RX;
 		count = ctx->rx_count;
 		ctx_update = spi_context_update_rx;
-
-		//if (trans.ui32InstrLen) {
-		//	cont = true;
-		//}
 	} else if (dir == AM_HAL_IOM_TX) {
 		trans.eDirection = AM_HAL_IOM_TX;
 		count = ctx->tx_count;
@@ -250,7 +246,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 
 	am_hal_iom_transfer_t trans = {0};
 
-    /* TODO Need to get iom_nce from different nodes of spi */
+	/* TODO Need to get iom_nce from different nodes of spi */
 #if defined(CONFIG_SOC_SERIES_APOLLO3X)
 	trans.uPeerInfo.ui32SpiChipSelect = cfg->pcfg->states->pins[SPI_CS_INDEX].iom_nce;
 #else
@@ -262,7 +258,7 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		/* There's data to Receive */
 		if (spi_context_rx_on(ctx)) {
 			/* Only need instruction in the first packet */
-			if (!data->pre_cont) {
+			if ((!data->pre_cont) || (config->operation & SPI_HALF_DUPLEX)) {
 				/*
 				 * The instruction length can only be:
 				 *  0~AM_HAL_IOM_MAX_OFFSETSIZE.
@@ -285,7 +281,6 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 			}
 			if ((!(config->operation & SPI_HALF_DUPLEX)) && (spi_context_tx_on(ctx))) {
 				trans.eDirection = AM_HAL_IOM_FULLDUPLEX;
-				//trans.bContinue = true;
 				trans.bContinue = cur_cont;
 				trans.pui32RxBuffer = (uint32_t *)ctx->rx_buf;
 				trans.pui32TxBuffer = (uint32_t *)ctx->tx_buf;
@@ -307,9 +302,9 @@ static int spi_ambiq_xfer(const struct device *dev, const struct spi_config *con
 		spi_context_complete(ctx, dev, ret);
 	}
 #endif
-    if (!ret) {
-    	data->pre_cont = cur_cont;
-    }
+	if (!ret) {
+		data->pre_cont = cur_cont;
+	}
 	return ret;
 }
 
