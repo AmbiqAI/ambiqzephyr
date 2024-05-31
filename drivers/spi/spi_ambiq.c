@@ -45,28 +45,9 @@ struct spi_ambiq_data {
 
 typedef void (*spi_context_update_trx)(struct spi_context *ctx, uint8_t dfs, uint32_t len);
 
-#define SPI_BASE (((const struct spi_ambiq_config *)(dev)->config)->base)
-#if defined(CONFIG_SOC_SERIES_APOLLO3X)
-#define REG_STAT 0x2B4
-#else
-#define REG_STAT 0x248
-#endif
-#define IDLE_STAT     0x4
-#define SPI_STAT(dev) (SPI_BASE + REG_STAT)
 #define SPI_WORD_SIZE 8
 
 #define SPI_CS_INDEX 3
-
-#define SPI_AMBIQ_RESET                                                                            \
-	/* cancel timed out transaction */                                                         \
-	am_hal_iom_disable(data->iom_handler);                                                     \
-	/* NULL config to trigger reconfigure on next xfer */                                      \
-	ctx->config = NULL;                                                                        \
-	/* signal any thread waiting on sync semaphore */                                          \
-	spi_context_complete(ctx, dev, -ETIMEDOUT);                                                \
-	/* clean up for next xfer */                                                               \
-	k_sem_reset(&ctx->sync);                                                                   \
-	return -EIO;
 
 #ifdef CONFIG_SPI_AMBIQ_DMA
 static __aligned(32) struct {
@@ -82,6 +63,21 @@ static void spi_ambiq_callback(void *callback_ctxt, uint32_t status)
 	spi_context_complete(ctx, dev, (status == AM_HAL_STATUS_SUCCESS) ? 0 : -EIO);
 }
 #endif
+
+inline void spi_ambiq_reset(const struct device *dev)
+{
+	struct spi_ambiq_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+
+	/* cancel timed out transaction */
+	am_hal_iom_disable(data->iom_handler);
+	/* NULL config to trigger reconfigure on next xfer */
+	ctx->config = NULL;
+	/* signal any thread waiting on sync semaphore */
+	spi_context_complete(ctx, dev, -ETIMEDOUT);
+	/* clean up for next xfer */
+	k_sem_reset(&ctx->sync);
+}
 
 static void spi_ambiq_isr(const struct device *dev)
 {
@@ -108,7 +104,7 @@ static int spi_config(const struct device *dev, const struct spi_config *config)
 		return 0;
 	}
 
-	if (SPI_WORD_SIZE_GET(config->operation) != 8) {
+	if (SPI_WORD_SIZE_GET(config->operation) != SPI_WORD_SIZE) {
 		LOG_ERR("Word size must be %d", SPI_WORD_SIZE);
 		return -ENOTSUP;
 	}
@@ -220,7 +216,8 @@ static int spi_ambiq_xfer_half_duplex(const struct device *dev, am_hal_iom_dir_e
 			    am_hal_iom_nonblocking_transfer(
 				    data->iom_handler, &trans,
 				    ((is_last == true) ? spi_ambiq_callback : NULL), (void *)dev)) {
-				SPI_AMBIQ_RESET
+				spi_ambiq_reset(dev);
+				return -EIO;
 			}
 			if (is_last) {
 				ret = spi_context_wait_for_completion(ctx);
@@ -363,8 +360,13 @@ end:
 static int spi_ambiq_release(const struct device *dev, const struct spi_config *config)
 {
 	struct spi_ambiq_data *data = dev->data;
+	am_hal_iom_status_t iom_status;
 
-	if (!sys_read32(SPI_STAT(dev))) {
+	am_hal_iom_status_get(data->iom_handler, &iom_status);
+
+	if ((iom_status.bStatIdle != IOM0_STATUS_IDLEST_IDLE) ||
+	    (iom_status.bStatCmdAct == IOM0_STATUS_CMDACT_ACTIVE) ||
+	    (iom_status.ui32NumPendTransactions)) {
 		return -EBUSY;
 	}
 
@@ -390,9 +392,9 @@ static int spi_ambiq_init(const struct device *dev)
 		return -ENXIO;
 	}
 
-	cfg->pwr_func();
+	ret = cfg->pwr_func();
 
-	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
+	ret |= pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		LOG_ERR("Fail to config SPI pins\n");
 		goto end;
