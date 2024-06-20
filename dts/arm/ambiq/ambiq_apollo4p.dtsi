@@ -87,13 +87,14 @@
 			compatible = "ambiq,pwrctrl";
 			reg = <0x40021000 0x400>;
 			#pwrcfg-cells = <2>;
+status = "disabled";
 		};
 
 		stimer0: stimer@40008800 {
 			compatible = "ambiq,stimer";
 			reg = <0x40008800 0x80>;
 			interrupts = <32 0>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		counter0: counter@40008200 {
@@ -323,6 +324,7 @@
 			reg = <0x40010000 0x800>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "disabled";
 
 			gpio: gpio@40010000 {
 				compatible = "ambiq,gpio";

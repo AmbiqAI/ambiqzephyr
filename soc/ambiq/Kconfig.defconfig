@@ -11,6 +11,7 @@ config CORTEX_M_SYSTICK
 
 config SYS_CLOCK_HW_CYCLES_PER_SEC
 	default 32768 if AMBIQ_STIMER_TIMER
+	default 32768
 
 config SYS_CLOCK_TICKS_PER_SEC
 	default 1024
