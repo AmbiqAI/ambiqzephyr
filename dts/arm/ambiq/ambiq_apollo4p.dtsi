@@ -54,32 +54,32 @@
 	};
 
 	/* TCM */
-	tcm: tcm@10000000 {
+	tcm: tcm@20000000 {
 		compatible = "zephyr,memory-region";
-		reg = <0x10000000 0x10000>;
+		reg = <0x20000000 0x10000>;
 		zephyr,memory-region = "ITCM";
 	};
 
 	/* SRAM */
-	sram0: memory@10010000 {
+	sram0: memory@20090000 {
 		compatible = "mmio-sram";
-		reg = <0x10010000 0x2B0000>;
+		reg = <0x20090000 0x2B0000>;
 	};
 
 	soc {
 		compatible = "ambiq,apollo4p", "ambiq,apollo4x", "simple-bus";
 
-		flash: flash-controller@18000 {
+		flash: flash-controller@410000 {
 			compatible = "ambiq,flash-controller";
-			reg = <0x00018000 0x1e8000>;
+			reg = <0x00410000 0x1e8000>;
 
 			#address-cells = <1>;
 			#size-cells = <1>;
 
 			/* Flash region */
-			flash0: flash@18000 {
+			flash0: flash@410000 {
 				compatible = "soc-nv-flash";
-				reg = <0x00018000 0x1e8000>;
+				reg = <0x00410000 0x1e8000>;
 			};
 		};
 
@@ -87,7 +87,7 @@
 			compatible = "ambiq,pwrctrl";
 			reg = <0x40021000 0x400>;
 			#pwrcfg-cells = <2>;
-status = "disabled";
+			status = "disabled";
 		};
 
 		stimer0: stimer@40008800 {
