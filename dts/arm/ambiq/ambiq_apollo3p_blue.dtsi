@@ -329,7 +329,7 @@
 			ambiq,pwrcfg = <&pwrcfg 0x8 0x8000>;
 
 			bt_hci_apollo: bt-hci@0 {
-				compatible = "ambiq,bt-hci-spi";
+				compatible = "bt-hci";
 				reg = <0>;
 			};
 		};
