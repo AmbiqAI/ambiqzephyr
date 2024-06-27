@@ -1,0 +1,383 @@
+# Copyright (c) 2018 Peter Bigot Consulting, LLC
+# Copyright (c) 2019-2020 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+# Common properties used by nodes describing serial flash devices that
+# are compatible with the JESD216F.02 Serial Flash Discoverable Parameters
+# specification.
+#
+# This allows encoding the entire BFP block in devicetree to avoid
+# reading at runtime, while still allowing the driver to pull out extra
+# data of interest, such as erase sizes.
+#
+# Alternatively the BFP block can be absent, but critical fields like
+# size can be provided directly along with the JEDEC ID of the expected
+# device to verify its presence at runtime.
+#
+# Only properties supported by parameter tables documented in the
+# JESD216 standards should be listed in this binding include file.
+
+properties:
+  jedec-id:
+    type: uint8-array
+    description: JEDEC ID as manufacturer ID, memory type, memory density
+
+  sfdp-bfp:
+    type: uint8-array
+    description: |
+      Contains the 32-bit words in little-endian byte order from the
+      JESD216 Serial Flash Discoverable Parameters Basic Flash
+      Parameters table.  This provides flash-specific configuration
+      information in cases were runtime retrieval of SFDP data
+      is not desired.
+
+  size:
+    type: int
+    description: flash capacity in bits
+
+  page-size:
+    type: int
+    description: |
+      Number of bytes in a page from JESD216 BFP DW11
+
+      This property is only used in the CONFIG_SPI_NOR_SFDP_MINIMAL configuration.
+      It is ignored if the device is configured to use SFDP data
+      from the sfdp-bfp property (CONFIG_SPI_NOR_SFDP_DEVICETREE) or
+      if the SFDP parameters are read from the device at
+      runtime (CONFIG_SPI_NOR_SFDP_RUNTIME).
+
+      The default value is 256 bytes if the value is not specified.
+
+  write-en-sel:
+    type: string
+    enum:
+      - "JESD_WEN_SEL_NA"
+      - "JESD_WEN_SEL_1"
+      - "JESD_WEN_SEL_2"
+      - "JESD_WEN_SEL_4"
+      - "JESD_WEN_SEL_8"
+      - "JESD_WEN_SEL_16"
+    description: |
+      Write enable instruction select status register write.
+      See JESD216F.02 BFP DW1 and DW16.
+
+      JESD_WEN_SEL_NA: Read only status register.
+      JESD_WEN_SEL_1:  Non-Volatile Status Register 1, powers-up to last written
+                       value, use instruction 06h to enable write.
+      JESD_WEN_SEL_2:  Volatile Status Register 1, status register powers-up
+                       with bits set to "1"s, use instruction 06h to enable write.
+      JESD_WEN_SEL_4:  Volatile Status Register 1, status register powers-up with
+                       bits set to "1"s, use instruction 50h to enable write.
+      JESD_WEN_SEL_8:  Non-Volatile/Volatile status register 1 powers-up to last
+                       written value in the nonvolatile status register, use
+                       instruction 06h to enable write to non-volatile status
+                       register.
+                       Volatile status register may be activated after power-up
+                       to override the non-volatile status register, use
+                       instruction 50h to enable write and activate the volatile
+                       status register.
+      JESD_WEN_SEL_16: Status Register 1 contains a mix of volatile and
+                       non-volatile bits. The 06h instruction is used to enable
+                       writing of the register.
+
+  quad-en-req:
+    type: string
+    enum:
+      - "JESD_QER_0"
+      - "JESD_QER_1"
+      - "JESD_QER_2"
+      - "JESD_QER_3"
+      - "JESD_QER_4"
+      - "JESD_QER_5"
+      - "JESD_QER_6"
+    description: |
+      Quad Enable Requirements value from JESD216F.02 BFP DW15.
+
+      JESD_QER_0: Device does not have a QE bit. Device detects 1S-1S-4S and
+                  1S-4S-4S reads based on instruction. IO3/HOLD# functions as
+                  hold during instruction phase.
+      JESD_QER_1: QE is bit 1 of status register 2. It is set via Write Status
+                  with two data bytes where bit 1 of the second byte is one.
+                  It is cleared via Write Status with two data bytes where bit
+                  1 of the second byte is zero. Writing only one byte to the
+                  status register has the side-effect of clearing status register
+                  2, including the QE bit. The 100b code is used if writing one
+                  byte to the status register does not modify status register 2.
+      JESD_QER_2: QE is bit 6 of status register 1. It is set via Write Status
+                  with one data byte where bit 6 is one. It is cleared via Write
+                  Status with one data byte where bit 6 is zero.
+      JESD_QER_3: QE is bit 7 of status register 2. It is set via Write status
+                  register 2 instruction 3Eh with one data byte where bit 7 is
+                  one. It is cleared via Write status register 2 instruction
+                  3Eh with one data byte where bit 7 is zero. The status register
+                  2 is read using instruction 3Fh.
+      JESD_QER_4: QE is bit 1 of status register 2. It is set via Write Status
+                  with two data bytes where bit 1 of the second byte is one.
+                  It is cleared via Write Status with two data bytes where bit
+                  1 of the second byte is zero. In contrast to the 001b code,
+                  writing one byte to the status register does not modify status
+                  register 2.
+      JESD_QER_5: QE is bit 1 of the status register 2. Status register 1 is read
+                  using Read Status instruction 05h. Status register 2 is read
+                  using instruction 35h. QE is set via Write Status instruction
+                  01h with two data bytes where bit 1 of the second byte is one.
+                  It is cleared via Write Status with two data bytes where bit 1
+                  of the second byte is zero.
+      JESD_QER_6: QE is bit 1 of the status register 2. Status register 1 is read
+                  using Read Status instruction 05h. Status register 2 is read
+                  using instruction 35h, and status register 3 is read using
+                  instruction 15h. QE is set via Write Status Register instruction
+                  31h with one data byte where bit 1 is one. It is cleared via
+                  Write Status Register instruction 31h with one data byte
+                  where bit 1 is zero.
+
+  quad-en-seq:
+    type: string
+    enum:
+      - "JESD_QEN_SEQ_NA"
+      - "JESD_QEN_SEQ_1"
+      - "JESD_QEN_SEQ_2"
+      - "JESD_QEN_SEQ_4"
+      - "JESD_QEN_SEQ_8"
+      - "JESD_QEN_SEQ_16"
+    description: |
+      The supported sequences to enter 4S-4S-4S mode from 1S-1S-1S mode.
+      See JESD216F.02 BFP DW15.
+
+      JESD_QEN_SEQ_1:  set QE per QER description above, then issue instruction 38h
+      JESD_QEN_SEQ_2:  issue instruction 38h
+      JESD_QEN_SEQ_4:  issue instruction 35h
+      JESD_QEN_SEQ_8:  device uses a read-modify-write sequence of operations:
+                       read configuration using instruction 65h followed by address
+                       800003h, set bit 6, write configuration using instruction 71h
+                       followed by address 800003h. This configuration is volatile.
+      JESD_QEN_SEQ_16: 4S-4S-4S mode enable sequences
+                       Device uses a read-modify-write sequence of operations:
+                       Read Volatile Enhanced Configuration Register using
+                       instruction 65h, no address is required, reset bit 7 to 0.
+                       Write Volatile Enhanced Configuration Register using instruction 61h,
+                       no address is required. This configuration is volatile.
+                       4S-4S-4S mode disable sequences
+                       Device uses a read-modify-write sequence of operations:
+                       Read Volatile Enhanced Configuration Register using instruction 65h,
+                       no address is required, set bit 7 to 1.
+                       Write Volatile Enhanced Configuration Register using instruction 61h,
+                       no address is required. This configuration is volatile.
+
+  quad-dis-seq:
+    type: string
+    enum:
+      - "JESD_QDIS_SEQ_NA"
+      - "JESD_QDIS_SEQ_1"
+      - "JESD_QDIS_SEQ_2"
+      - "JESD_QDIS_SEQ_4"
+      - "JESD_QDIS_SEQ_8"
+    description: |
+      The supported sequences to exit 4S-4S-4S mode from JESD216F.02 BFP DW19.
+      JESD_QDIS_SEQ_1: issue FFh instruction
+      JESD_QDIS_SEQ_2: issue F5h instruction
+      JESD_QDIS_SEQ_4: device uses a read-modify-write sequence of operations:
+                       read configuration using instruction 65h followed by
+                       address 800003h, clear bit 6, write configuration using
+                       instruction 71h followed by address 800003h. This
+                       configuration is volatile.
+      JESD_QDIS_SEQ_8: issue the Soft Reset 66/99 sequence.
+
+  octal-en-req:
+    type: string
+    enum:
+      - "JESD_OER_0"
+      - "JESD_OER_1"
+    description: |
+      Octal Enable Requirements value from JESD216F.02 BFP DW19.
+
+      JESD_OER_0: Device does not have an Octal Enable bit.
+      JESD_OER_1: Octal Enable is bit 3 of status register 2. It is set via
+                  Write status register 2 instruction 31h with one data byte
+                  where bit 3 is one. It is cleared via Write status register
+                  2 instruction 3Eh with one data byte where bit 3 is zero.
+                  The status register 2 is read using instruction 65h with
+                  address byte 02h and one dummy byte.
+
+  octal-en-seq:
+    type: string
+    enum:
+      - "JESD_OEN_SEQ_NA"
+      - "JESD_OEN_SEQ_2"
+      - "JESD_OEN_SEQ_4"
+    description: |
+      The supported sequences to enter 8-8-8 mode from 1S-1S-1S mode.
+      See JESD216F.02 BFP DW19.
+
+      JESD_OEN_SEQ_2: Issue instruction 06h (WREN), then issue instruction E8h
+      JESD_OEN_SEQ_4: Issue instruction 06h (WREN), then issue instruction 72h
+                      (Write CFG Reg 2), Address = 00000000h, Data = 01h
+                      (8S-8S-8S) or 02h (8D-8D-8D).
+
+  octal-dis-seq:
+    type: string
+    enum:
+      - "JESD_ODIS_SEQ_NA"
+      - "JESD_ODIS_SEQ_1"
+      - "JESD_ODIS_SEQ_8"
+    description: |
+      The supported sequences to exit 8-8-8 mode from JESD216F.02 BFP DW19.
+
+      JESD_ODIS_SEQ_1: Issue instruction 06h (WREN), then issue FFh instruction
+      JESD_ODIS_SEQ_8: Issue the Soft Reset 66/99 sequence.
+
+  erase-type1:
+    type: array
+    description: |
+      Tuple of erase instruction and erase size from JESD216F.02 BFP DW8.
+      <Instr Size>
+
+  erase-type2:
+    type: array
+    description: |
+      Tuple of erase instruction and erase size from JESD216F.02 BFP DW8.
+      <Instr Size>
+
+  erase-type3:
+    type: array
+    description: |
+      Tuple of erase instruction and erase size from JESD216F.02 BFP DW9.
+      <Instr Size>
+
+  erase-type4:
+    type: array
+    description: |
+      Tuple of erase instruction and erase size from JESD216F.02 BFP DW9.
+      <Instr Size>
+
+  dpd-instr:
+    type: array
+    description: |
+      Tuple of enter Deep Powerdown and exit Deep Powerdown instruction from
+      JESD216F.02 BFP DW14.
+      <EnterInstr ExitInstr>
+
+  dpd-exit-delay:
+    type: int
+    description: |
+      Maximum time required by the flash device to exit Deep Powerdown and be
+      ready to accept any command. (NOTE: Read status is not valid when exiting
+      deep powerdown.) See JESD216F.02 BFP DW14. Unit in us.
+
+  enter-4b-seq:
+    type: string
+    enum:
+      - "JESD_ENTR_4B_SEQ_NA"
+      - "JESD_ENTR_4B_SEQ_1"
+      - "JESD_ENTR_4B_SEQ_2"
+      - "JESD_ENTR_4B_SEQ_4"
+      - "JESD_ENTR_4B_SEQ_8"
+      - "JESD_ENTR_4B_SEQ_16"
+      - "JESD_ENTR_4B_SEQ_32"
+      - "JESD_ENTR_4B_SEQ_64"
+
+    description: |
+      The supported sequences to enter 4-byte addressing mode or to use an
+      extended address register with 3-byte addressing to access memory above
+      16 MBytes. See JESD216F.02 BFP DW16.
+
+      JESD_ENTR_4B_SEQ_1:  issue instruction B7h
+      JESD_ENTR_4B_SEQ_2:  issue write enable instruction 06h,
+                           then issue instruction B7h
+      JESD_ENTR_4B_SEQ_4:  8-bit volatile extended address register used to define
+                           A[31:24] bits. Read with instruction C8h. Write instruction
+                           is C5h with 1 byte of data. Select the active 128 Mbit
+                           memory segment by setting the appropriate A[31:24] bits
+                           and use 3-Byte addressing.
+      JESD_ENTR_4B_SEQ_8:  8-bit volatile bank register used to define A[30:A24] bits.
+                           MSB (bit[7]) is used to enable/disable 4-byte address mode.
+                           When MSB is set to '1', 4-byte address mode is active and
+                           A[30:24] bits are do not care. Read with instruction 16h.
+                           Write instruction is 17h with 1 byte of data. When MSB is
+                           cleared to '0', select the active 128 Mbit segment by
+                           setting the appropriate A[30:24] bits and use 3-Byte
+                           addressing.
+      JESD_ENTR_4B_SEQ_16: A 16-bit nonvolatile configuration register controls
+                           3-Byte/4-Byte address mode. Read instruction is B5h.
+                           Bit[0] controls address mode [0=3-Byte; 1=4-Byte].
+                           Write configuration register instruction is B1h, data
+                           length is 2 bytes.
+      JESD_ENTR_4B_SEQ_32: Supports dedicated 4-Byte address instruction set.
+                           Consult vendor data sheet for the instruction.
+      JESD_ENTR_4B_SEQ_64: Always operates in 4-Byte address mode.
+
+  exit-4b-seq:
+    type: string
+    enum:
+      - "JESD_EXIT_4B_SEQ_NA"
+      - "JESD_EXIT_4B_SEQ_1"
+      - "JESD_EXIT_4B_SEQ_2"
+      - "JESD_EXIT_4B_SEQ_4"
+      - "JESD_EXIT_4B_SEQ_8"
+      - "JESD_EXIT_4B_SEQ_16"
+      - "JESD_EXIT_4B_SEQ_32"
+      - "JESD_EXIT_4B_SEQ_64"
+      - "JESD_EXIT_4B_SEQ_128"
+
+    description: |
+      The supported sequences to exit 4-byte addressing mode.
+      See JESD216F.02 BFP DW16.
+
+      JESD_EXIT_4B_SEQ_1:   issue instruction E9h to exit 4-Byte address mode.
+      JESD_EXIT_4B_SEQ_2:   issue write enable instruction 06h, then issue
+                            instruction E9h to exit 4-Byte address mode.
+      JESD_EXIT_4B_SEQ_4:   8-bit volatile extended address register used to
+                            define A[31:A24] bits. Read with instruction C8h.
+                            Write instruction is C5h, data length is 1 byte.
+                            Return to lowest memory segment by setting A[31:24]
+                            to 00h and use 3-Byte addressing.
+      JESD_EXIT_4B_SEQ_8:   8-bit volatile bank register used to define A[30:A24]
+                            bits. MSB (bit[7]) is used to enable/disable 4-byte
+                            address mode. When MSB is cleared to '0', 3-byte
+                            address mode is active and A30:A24 are used to select
+                            the active 128 Mbit memory segment.
+                            Read with instruction 16h. Write instruction is 17h,
+                            data length is 1 byte.
+      JESD_EXIT_4B_SEQ_16:  A 16-bit nonvolatile configuration register controls
+                            3-Byte/4-Byte address mode. Read instruction is B5h.
+                            Bit[0] controls address mode [0=3-Byte; 1=4-Byte].
+                            Write configuration register instruction is B1h,
+                            data length is 2 bytes.
+      JESD_EXIT_4B_SEQ_32:  Hardware reset.
+      JESD_EXIT_4B_SEQ_64:  Software reset. (see bits 13:8 in this DWORD)
+      JESD_EXIT_4B_SEQ_128: Power cycle.
+
+  sw-rst-seq:
+    type: string
+    enum:
+      - "JESD_SW_RST_SEQ_0"
+      - "JESD_SW_RST_SEQ_1"
+      - "JESD_SW_RST_SEQ_2"
+      - "JESD_SW_RST_SEQ_4"
+      - "JESD_SW_RST_SEQ_8"
+      - "JESD_SW_RST_SEQ_16"
+      - "JESD_SW_RST_SEQ_32"
+
+    description: |
+      The supported sequences to return the device to its default power-on state.
+      See JESD216F.02 BFP DW16.
+
+      JESD_SW_RST_SEQ_0:  no software reset instruction is supported.
+      JESD_SW_RST_SEQ_1:  drive Fh on all 4 data wires for 8 clocks.
+      JESD_SW_RST_SEQ_2:  drive Fh on all 4 data wires for 10 clocks.
+      JESD_SW_RST_SEQ_4:  drive Fh on all 4 data wires for 16 clocks.
+
+      JESD_SW_RST_SEQ_8:  issue instruction F0h.
+      JESD_SW_RST_SEQ_16: issue reset enable instruction 66h, then issue reset
+                          instruction 99h. The reset enable, set sequence may
+                          be issued on 1, 2, 4, or 8 wires depending on the
+                          device operating mode.
+      JESD_SW_RST_SEQ_32: exit 0-4-4 mode is required prior to other reset
+                          sequences above if the device may be operating in
+                          this mode. See 0-4-4 Mode Exit sequence.
+  in-band-rst:
+    type: boolean
+    description: |
+      JEDEC SPI Protocol Reset (In-Band Reset). See JESD216F.02 BFP DW18.
+      0: JEDEC SPI Protocol Reset NOT implemented
+      1: JEDEC SPI Protocol Reset implemented as described in JESD252

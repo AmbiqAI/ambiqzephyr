@@ -1,0 +1,88 @@
+# Copyright (c) 2024, Ambiq Micro Inc. <www.ambiq.com>
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Properties supporting Zephyr mspi-nor flash driver (over the Zephyr MSPI
+  API) control of serial flash memories using the standard M25P80-based
+  command set.
+
+compatible: "jedec,mspi-nor"
+
+include: [mspi-device.yaml, "jedec,jesd216F.yaml"]
+
+properties:
+  wp-gpios:
+    type: phandle-array
+    description: WPn pin
+  hold-gpios:
+    type: phandle-array
+    description: HOLDn pin
+  reset-gpios:
+    type: phandle-array
+    description: RESETn pin
+
+  has-dpd:
+    type: boolean
+    description: |
+      Indicates the device supports the DPD (0xB9) command.
+
+      Use this property to indicate the flash chip supports the Deep
+      Power-Down mode that is entered by command 0xB9 to reduce power
+      consumption below normal standby levels.  Use of this property
+      implies that the RDPD (0xAB) Release from Deep Power Down command
+      is also supported.  (On some chips this command functions as Read
+      Electronic Signature; see t-enter-dpd).
+
+  dpd-wakeup-sequence:
+    type: array
+    description: |
+      Specifies wakeup durations for devices without RDPD.
+
+      Some devices (Macronix MX25R in particular) wake from deep power
+      down by a timed sequence of CSn toggles rather than the RDPD
+      command.  This property specifies three durations measured in
+      nanoseconds, in this order:
+      (1) tDPDD (Delay Time for Release from Deep Power-Down Mode)
+      (2) tCDRP (CSn Toggling Time before Release from Deep Power-Down Mode)
+      (3) tRDP (Recovery Time for Release from Deep Power-Down Mode)
+
+      Absence of this property indicates that the RDPD command should be
+      used to wake the chip from Deep Power-Down mode.
+
+  t-enter-dpd:
+    type: int
+    description: |
+      Duration required to complete the DPD command.
+
+      This provides the duration, in nanoseconds, that CSn must be
+      remain deasserted after issuing DPD before the chip will enter
+      deep power down.
+
+      If not provided the driver does not enforce a delay.
+
+  t-exit-dpd:
+    type: int
+    description: |
+      Duration required to complete the RDPD command.
+
+      This provides the duration, in nanoseconds, that CSn must be
+      remain deasserted after issuing RDPD before the chip will exit
+      deep power down and be ready to receive additional commands.
+
+      If not provided the driver does not enforce a delay.
+
+  has-bp:
+    type: int
+    description: |
+      Bit mask of bits of the status register that should be cleared on
+      startup.
+
+      Some devices from certain vendors power-up with block protect bits
+      set in the status register, which prevent any erase or program
+      operation from working.  Devices that have this behavior need to
+      clear those bits on startup.  However, other devices have
+      non-volatile bits in the status register that should not be
+      cleared.
+
+      This value, when present, identifies bits in the status register
+      that should be cleared when the device is initialized.

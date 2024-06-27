@@ -458,6 +458,36 @@ enum jesd216_dw15_qer_type {
 #define JESD216_DW15_QER_VAL_S2B1v5 5
 #define JESD216_DW15_QER_VAL_S2B1v6 6
 
+/*  Equivalent to jesd216_dw15_qer_type */
+enum jesd216_qer {
+	JESD_QER_0,
+	JESD_QER_1,
+	JESD_QER_2,
+	JESD_QER_3,
+	JESD_QER_4,
+	JESD_QER_5,
+	JESD_QER_6,
+};
+
+/*  quad 4-4-4 enable sequences */
+enum jesd216_qen_seq {
+	JESD_QEN_SEQ_NA         = 0,
+	JESD_QEN_SEQ_1          = BIT(1),
+	JESD_QEN_SEQ_2          = BIT(2),
+	JESD_QEN_SEQ_4          = BIT(3),
+	JESD_QEN_SEQ_8          = BIT(4),
+	JESD_QEN_SEQ_16         = BIT(5),
+};
+
+/* quad 4-4-4 disable sequences */
+enum jesd216_qdis_seq {
+	JESD_QDIS_SEQ_NA        = 0,
+	JESD_QDIS_SEQ_1         = BIT(1),
+	JESD_QDIS_SEQ_2         = BIT(2),
+	JESD_QDIS_SEQ_4         = BIT(3),
+	JESD_QDIS_SEQ_8         = BIT(4),
+};
+
 /* Decoded data from JESD216 DW15 */
 struct jesd216_bfp_dw15 {
 	/* If true clear NVECR bit 4 to disable HOLD/RESET */
@@ -490,6 +520,48 @@ struct jesd216_bfp_dw15 {
 int jesd216_bfp_decode_dw15(const struct jesd216_param_header *php,
 			    const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw15 *res);
+
+enum jesd216_entr_4B_seq {
+	JESD_ENTR_4B_SEQ_NA     = 0,
+	JESD_ENTR_4B_SEQ_1      = BIT(1),
+	JESD_ENTR_4B_SEQ_2      = BIT(2),
+	JESD_ENTR_4B_SEQ_4      = BIT(3),
+	JESD_ENTR_4B_SEQ_8      = BIT(4),
+	JESD_ENTR_4B_SEQ_16     = BIT(5),
+	JESD_ENTR_4B_SEQ_32     = BIT(6),
+	JESD_ENTR_4B_SEQ_64     = BIT(7),
+};
+
+enum jesd216_exit_4B_seq {
+	JESD_EXIT_4B_SEQ_NA     = 0,
+	JESD_EXIT_4B_SEQ_1      = BIT(1),
+	JESD_EXIT_4B_SEQ_2      = BIT(2),
+	JESD_EXIT_4B_SEQ_4      = BIT(3),
+	JESD_EXIT_4B_SEQ_8      = BIT(4),
+	JESD_EXIT_4B_SEQ_16     = BIT(5),
+	JESD_EXIT_4B_SEQ_32     = BIT(6),
+	JESD_EXIT_4B_SEQ_64     = BIT(7),
+	JESD_EXIT_4B_SEQ_128    = BIT(8),
+};
+
+enum jesd216_sw_rst_seq {
+	JESD_SW_RST_SEQ_0       = 0,
+	JESD_SW_RST_SEQ_1       = BIT(1),
+	JESD_SW_RST_SEQ_2       = BIT(2),
+	JESD_SW_RST_SEQ_4       = BIT(3),
+	JESD_SW_RST_SEQ_8       = BIT(4),
+	JESD_SW_RST_SEQ_16      = BIT(5),
+	JESD_SW_RST_SEQ_32      = BIT(6),
+};
+
+enum jesd216_wen_sel {
+	JESD_WEN_SEL_NA         = 0,
+	JESD_WEN_SEL_1          = BIT(1),
+	JESD_WEN_SEL_2          = BIT(2),
+	JESD_WEN_SEL_4          = BIT(3),
+	JESD_WEN_SEL_8          = BIT(4),
+	JESD_WEN_SEL_16         = BIT(5),
+};
 
 /* Decoded data from JESD216_DW16 */
 struct jesd216_bfp_dw16 {
@@ -529,4 +601,302 @@ int jesd216_bfp_decode_dw16(const struct jesd216_param_header *php,
 			    const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw16 *res);
 
+/* Decoded data from JESD216_DW17 */
+struct jesd216_bfp_dw17 {
+	/* Bits specifying the fast read instruction for 1s-1s-8s mode */
+	unsigned int fast_read_118_instr: 8;
+
+	/* Bits specifying the fast read mode clock number for 1s-1s-8s mode */
+	unsigned int fast_read_118_mode_clks: 3;
+
+	/* Bits specifying the fast read dummy clock number for 1s-1s-8s mode */
+	unsigned int fast_read_118_dummy_clks: 5;
+
+	/* Bits specifying the fast read instruction for 1s-8s-8s mode */
+	unsigned int fast_read_188_instr: 8;
+
+	/* Bits specifying the fast read mode clock number for 1s-8s-8s mode */
+	unsigned int fast_read_188_mode_clks: 3;
+
+	/* Bits specifying the fast read dummy clock number for 1s-8s-8s mode */
+	unsigned int fast_read_188_dummy_clks: 5;
+};
+
+/* Get data from BFP DW17.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw17(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw17 *res);
+
+/* Decoded data from JESD216_DW18 */
+struct jesd216_bfp_dw18 {
+	/* Bit specifying byte order of 16-bit words for 8d-8d-8d mode */
+	unsigned int byte_order: 1;
+
+	/* Bits specifying 8D-8D-8D Command and Command Extension */
+	unsigned int cmd_ext: 2;
+
+	unsigned int reserved_28: 1;
+
+	/* Bit specifying Data Strobe support for QPI DTR mode (4S-4D-4D) */
+	unsigned int dqs_qpi_dtr: 1;
+
+	/* Bit specifying Data Strobe support for QPI STR mode (4S-4S-4S) */
+	unsigned int dqs_qpi_str: 1;
+
+	/* Bit specifying Data Strobe Waveforms in STR Mode */
+	unsigned int dqs_qpi_str_wave: 2;
+
+	/* Bit JEDEC SPI Protocol Reset (In-Band Reset) */
+	unsigned int in_band_rst: 1;
+
+	/* Bits specifying Variable Output Driver Strength */
+	unsigned int ds_type: 5;
+
+	unsigned int reserved_17_0: 18;
+};
+
+/* Get data from BFP DW18.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw18(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw18 *res);
+
+/* octal enable requirement */
+enum jesd216_oer {
+	JESD_OER_0              = 0,
+	JESD_OER_1              = BIT(1),
+};
+
+/* 8s-8s-8s enable sequence */
+enum jesd216_oen_seq {
+	JESD_OEN_SEQ_NA         = 0,
+	JESD_OEN_SEQ_2          = BIT(2),
+	JESD_OEN_SEQ_4          = BIT(3),
+};
+
+/* 8s-8s-8s disable sequence */
+enum jesd216_odis_seq {
+	JESD_ODIS_SEQ_NA        = 0,
+	JESD_ODIS_SEQ_1         = BIT(1),
+	JESD_ODIS_SEQ_8         = BIT(3),
+};
+
+/* Decoded data from JESD216_DW19 */
+struct jesd216_bfp_dw19 {
+	unsigned int reserved_31_23: 9;
+
+	/* Bits specifying Octal Enable Requirements */
+	unsigned int oer: 3;
+
+	/* Bits specifying 0-8-8 mode entry method */
+	unsigned int entry_088: 4;
+
+	/* Bits specifying 0-8-8 mode exit method */
+	unsigned int exit_088: 6;
+
+	/* Bit specifying if 0-8-8 mode is supported */
+	unsigned int support_088: 1;
+
+	/* Bits specifying 8-8-8 mode enable sequences */
+	unsigned int enable_888: 5;
+
+	/* Bits specifying 8-8-8 mode disable sequences */
+	unsigned int disable_888: 4;
+};
+
+/* Get data from BFP DW19.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw19(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw19 *res);
+
+/* Decoded data from JESD216_DW20 */
+struct jesd216_bfp_dw20 {
+	/* Bit specifying Maximum operation speed of device in 8D-8D-8D mode
+	 * when utilizing Data Strobe
+	 */
+	unsigned int octal_dtr_max_freq_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 8D-8D-8D mode
+	 * when not utilizing Data Strobe
+	 */
+	unsigned int octal_dtr_max_freq_non_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 8S-8S-8S mode
+	 * when utilizing Data Strobe
+	 */
+	unsigned int octal_str_max_freq_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 8S-8S-8S mode
+	 * when not utilizing Data Strobe
+	 */
+	unsigned int octal_str_max_freq_non_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 4s-4D-4D mode
+	 * when utilizing Data Strobe
+	 */
+	unsigned int quad_dtr_max_freq_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 4s-4D-4D mode
+	 * when not utilizing Data Strobe
+	 */
+	unsigned int quad_dtr_max_freq_non_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 4S-4S-4S mode
+	 * when utilizing Data Strobe
+	 */
+	unsigned int quad_str_max_freq_dqs: 4;
+
+	/* Bit specifying Maximum operation speed of device in 4S-4S-4S mode
+	 * when not utilizing Data Strobe
+	 */
+	unsigned int quad_str_max_freq_non_dqs: 4;
+};
+
+/* Get data from BFP DW20.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw20(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw20 *res);
+
+/* Decoded data from JESD216_DW21 */
+struct jesd216_bfp_dw21 {
+	unsigned int reserved_31_4: 28;
+
+	/* Bit specifying if supports (4S-4D-4D) Fast Read */
+	unsigned int fast_read_444_dtr_supp: 1;
+
+	/* Bit specifying if supports (1S-4D-4D) Fast Read */
+	unsigned int fast_read_144_dtr_supp: 1;
+
+	/* Bit specifying if supports (1S-2D-2D) Fast Read */
+	unsigned int fast_read_122_dtr_supp: 1;
+
+	/* Bit specifying if supports (1S-1D-1D) Fast Read */
+	unsigned int fast_read_111_dtr_supp: 1;
+};
+
+/* Get data from BFP DW21.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw21(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw21 *res);
+
+/* Decoded data from JESD216_DW22 */
+struct jesd216_bfp_dw22 {
+	/* Bits specifying 1S-2D-2D Fast Read Instruction DTR*/
+	unsigned int fast_read_122_dtr_instr: 8;
+
+	/* Bits specifying 1S-2D-2D Fast Read Number of Mode Clocks */
+	unsigned int fast_read_122_mode_clks: 3;
+
+	/* Bits specifying 1S-2D-2D Fast Read Number of Dummy Clocks */
+	unsigned int fast_read_122_dummy_clks: 5;
+
+	/* Bits specifying 1S-1D-1D Fast Read Instruction DTR*/
+	unsigned int fast_read_111_dtr_instr: 8;
+
+	/* Bits specifying 1S-1D-1D Fast Read Number of Mode Clocks */
+	unsigned int fast_read_111_mode_clks: 3;
+
+	/* Bits specifying 1S-1D-1D Fast Read Number of Dummy Clocks */
+	unsigned int fast_read_111_dummy_clks: 5;
+};
+
+/* Get data from BFP DW22.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw22(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw22 *res);
+
+/* Decoded data from JESD216_DW23 */
+struct jesd216_bfp_dw23 {
+	/* Bits specifying 4S-4D-4D Fast Read Instruction DTR*/
+	unsigned int fast_read_444_dtr_instr: 8;
+
+	/* Bits specifying 4S-4D-4D Fast Read Number of Mode Clocks */
+	unsigned int fast_read_444_mode_clks: 3;
+
+	/* Bits specifying 4S-4D-4D Fast Read Number of Dummy Clocks */
+	unsigned int fast_read_444_dummy_clks: 5;
+
+	/* Bits specifying 1S-4D-4D Fast Read Instruction DTR*/
+	unsigned int fast_read_144_dtr_instr: 8;
+
+	/* Bits specifying 1S-4D-4D Fast Read Number of Mode Clocks */
+	unsigned int fast_read_144_mode_clks: 3;
+
+	/* Bits specifying 1S-4D-4D Fast Read Number of Dummy Clocks */
+	unsigned int fast_read_144_dummy_clks: 5;
+};
+
+/* Get data from BFP DW23.
+ *
+ * @param php pointer to the BFP header.
+ *
+ * @param bfp pointer to the BFP table.
+ *
+ * @param res pointer to where to store the decoded data.
+ *
+ * @retval -ENOTSUP if this information is not available from this BFP table.
+ * @retval 0 on successful storage into @c *res.
+ */
+int jesd216_bfp_decode_dw23(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw23 *res);
 #endif /* ZEPHYR_DRIVERS_FLASH_JESD216_H_ */

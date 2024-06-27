@@ -327,3 +327,108 @@ int jesd216_bfp_decode_dw16(const struct jesd216_param_header *php,
 
 	return 0;
 }
+
+int jesd216_bfp_decode_dw17(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw17 *res)
+{
+	/* DW17 introduced in JESD216F */
+	if (php->len_dw < 17) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw17 = (uint32_t *)res;
+	*dw17 = sys_le32_to_cpu(bfp->dw10[7]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw18(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw18 *res)
+{
+	/* DW18 introduced in JESD216F */
+	if (php->len_dw < 18) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw18 = (uint32_t *)res;
+	*dw18 = sys_le32_to_cpu(bfp->dw10[8]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw19(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw19 *res)
+{
+	/* DW19 introduced in JESD216F */
+	if (php->len_dw < 19) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw19 = (uint32_t *)res;
+	*dw19 = sys_le32_to_cpu(bfp->dw10[9]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw20(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw20 *res)
+{
+	/* DW20 introduced in JESD216F */
+	if (php->len_dw < 20) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw20 = (uint32_t *)res;
+	*dw20 = sys_le32_to_cpu(bfp->dw10[10]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw21(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw21 *res)
+{
+	/* DW21 introduced in JESD216F */
+	if (php->len_dw < 21) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw21 = (uint32_t *)res;
+	*dw21 = sys_le32_to_cpu(bfp->dw10[11]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw22(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw22 *res)
+{
+	/* DW22 introduced in JESD216F */
+	if (php->len_dw < 22) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw22 = (uint32_t *)res;
+	*dw22 = sys_le32_to_cpu(bfp->dw10[12]);
+
+	return 0;
+}
+
+int jesd216_bfp_decode_dw23(const struct jesd216_param_header *php,
+			    const struct jesd216_bfp *bfp,
+			    struct jesd216_bfp_dw23 *res)
+{
+	/* DW23 introduced in JESD216F */
+	if (php->len_dw < 23) {
+		return -ENOTSUP;
+	}
+
+	uint32_t *dw23 = (uint32_t *)res;
+	*dw23 = sys_le32_to_cpu(bfp->dw10[13]);
+
+	return 0;
+}
