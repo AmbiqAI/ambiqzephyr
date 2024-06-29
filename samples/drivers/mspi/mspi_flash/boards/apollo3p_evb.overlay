@@ -55,10 +55,11 @@
 	};
 
 	atxp032: atxp032@1 {
-		compatible = "ambiq,mspi-device", "mspi-atxp032";
+		compatible = "ambiq,mspi-device", "jedec,mspi-nor";
 		size = <DT_SIZE_M(32)>;
 		reg = <1>;
 		status = "okay";
+
 		mspi-max-frequency = <48000000>;
 		mspi-io-mode = "MSPI_IO_MODE_OCTAL";
 		mspi-data-rate = "MSPI_DATA_RATE_SINGLE";
@@ -73,6 +74,13 @@
 		ce-break-config = <0 0>;
 		ambiq,timing-config-mask = <3>;
 		ambiq,timing-config = <0 8 0 0 0 0 0 0>;
+
+		jedec-id = [00 00 00];
+		page-size = <256>;
+		has-dpd;
+		dpd-wakeup-sequence = <10 20 30>;
+		has-bp = <1>;
+		sfdp-bfp = [00 00 00 00 00];
 	};
 
 };

@@ -5,7 +5,7 @@ description: Ambiq MSPI device
 
 compatible: "ambiq,mspi-device"
 
-include: [mspi-device.yaml, "jedec,jesd216.yaml"]
+include: [mspi-device.yaml, "jedec,mspi-nor.yaml"]
 
 properties:
   mspi-io-mode:
