@@ -33,9 +33,10 @@ struct user_context {
 void async_cb(struct mspi_callback_context *mspi_cb_ctx, uint32_t status)
 {
 	volatile struct user_context *usr_ctx = mspi_cb_ctx->ctx;
+	volatile struct mspi_event *evt = &mspi_cb_ctx->mspi_evt;
 
-	mspi_cb_ctx->mspi_evt.evt_data.status = status;
-	if (mspi_cb_ctx->mspi_evt.evt_data.packet_idx == usr_ctx->total_packets - 1) {
+	evt->evt_data.status = status;
+	if (evt->evt_data.packet_idx == usr_ctx->total_packets - 1) {
 		usr_ctx->status = 0;
 	}
 }
@@ -190,6 +191,10 @@ int main(void)
 			cb_ctx2.mspi_evt.evt_data.packet_idx);
 		k_busy_wait(100000);
 	}
+
+	printk("write completed:%d, read completed:%d\n",
+		cb_ctx1.mspi_evt.evt_data.packet_idx,
+		cb_ctx2.mspi_evt.evt_data.packet_idx);
 
 	for (j = 0; j < BUF_SIZE; j++) {
 		if (memc_write_buffer[j] != memc_read_buffer[j]) {

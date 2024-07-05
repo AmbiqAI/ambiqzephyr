@@ -25,6 +25,8 @@
 			},                                                                        \
 	}
 
+#define MSPI_CQ_MAX_ENTRY MSPI0_CQCURIDX_CQCURIDX_Msk
+
 struct mspi_ambiq_timing_cfg {
 	uint8_t ui8WriteLatency;
 	uint8_t ui8TurnAround;

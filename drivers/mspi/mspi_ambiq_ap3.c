@@ -35,13 +35,13 @@ struct mspi_context {
 	struct mspi_xfer              xfer;
 
 	int                           packets_left;
-	int                           packets_done;
+	volatile int                  packets_done;
 
 	mspi_callback_handler_t       callback;
 	struct mspi_callback_context  *callback_ctx;
-	bool asynchronous;
+	bool                          asynchronous;
 
-	struct k_sem lock;
+	struct k_sem                  lock;
 };
 
 struct mspi_ambiq_config {
@@ -52,6 +52,8 @@ struct mspi_ambiq_config {
 
 	const struct pinctrl_dev_config *pcfg;
 	irq_config_func_t               irq_cfg_func;
+
+	am_hal_mspi_seq_mode_e          seq_mode;
 
 	LOG_INSTANCE_PTR_DECLARE(log);
 };
@@ -222,7 +224,7 @@ static inline int mspi_context_lock(struct mspi_context *ctx,
 				    struct mspi_callback_context *callback_ctx,
 				    bool lockon)
 {
-	int ret = 1;
+	int ret = 0;
 
 	if ((k_sem_count_get(&ctx->lock) == 0) && !lockon &&
 	    (ctx->owner == req)) {
@@ -232,27 +234,7 @@ static inline int mspi_context_lock(struct mspi_context *ctx,
 	if (k_sem_take(&ctx->lock, K_MSEC(xfer->timeout))) {
 		return -EBUSY;
 	}
-	if (ctx->xfer.async) {
-		if ((xfer->tx_dummy == ctx->xfer.tx_dummy) &&
-		    (xfer->rx_dummy == ctx->xfer.rx_dummy) &&
-		    (xfer->cmd_length == ctx->xfer.cmd_length) &&
-		    (xfer->addr_length == ctx->xfer.addr_length)) {
-			ret = 0;
-		} else if (ctx->packets_left == 0) {
-			if (ctx->callback_ctx) {
-				volatile struct mspi_event_data *evt_data;
 
-				evt_data = &ctx->callback_ctx->mspi_evt.evt_data;
-				while (evt_data->status != 0) {
-				}
-				ret = 1;
-			} else {
-				ret = 0;
-			}
-		} else {
-			return -EIO;
-		}
-	}
 	ctx->owner           = req;
 	ctx->xfer            = *xfer;
 	ctx->packets_done    = 0;
@@ -355,34 +337,13 @@ e_deinit_return:
 }
 
 /** DMA specific config */
-static int mspi_xfer_config(const struct device *controller,
-			    const struct mspi_xfer *xfer)
+static int mspi_xfer_config_update(const struct device *controller,
+				   const struct mspi_xfer *xfer)
 {
 	const struct mspi_ambiq_config *cfg = controller->config;
 	struct mspi_ambiq_data *data = controller->data;
 	am_hal_mspi_dev_config_t hal_dev_cfg = data->hal_dev_cfg;
-	am_hal_mspi_request_e eRequest;
 	int ret = 0;
-
-	if (data->scramble_cfg.enable) {
-		eRequest = AM_HAL_MSPI_REQ_SCRAMB_EN;
-	} else {
-		eRequest = AM_HAL_MSPI_REQ_SCRAMB_DIS;
-	}
-
-	ret = am_hal_mspi_disable(data->mspiHandle);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to disable MSPI, code:%d.",
-			     __LINE__, ret);
-		return -EHOSTDOWN;
-	}
-
-	ret = am_hal_mspi_control(data->mspiHandle, eRequest, NULL);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u,Unable to complete scramble config:%d.",
-			     __LINE__, data->scramble_cfg.enable);
-		return -EHOSTDOWN;
-	}
 
 	if (xfer->cmd_length > AM_HAL_MSPI_INSTR_2_BYTE + 1) {
 		LOG_INST_ERR(cfg->log, "%u, cmd_length is too large.", __LINE__);
@@ -410,20 +371,6 @@ static int mspi_xfer_config(const struct device *controller,
 	hal_dev_cfg.ui8TurnAround   = (uint8_t)xfer->rx_dummy;
 	hal_dev_cfg.bEnWriteLatency = (xfer->tx_dummy != 0);
 	hal_dev_cfg.ui8WriteLatency = (uint8_t)xfer->tx_dummy;
-
-	ret = am_hal_mspi_device_configure(data->mspiHandle, &hal_dev_cfg);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to configure MSPI, code:%d.",
-			     __LINE__, ret);
-		return -EHOSTDOWN;
-	}
-
-	ret = am_hal_mspi_enable(data->mspiHandle);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to enable MSPI, code:%d.",
-			     __LINE__, ret);
-		return -EHOSTDOWN;
-	}
 
 	data->hal_dev_cfg = hal_dev_cfg;
 	return ret;
@@ -805,7 +752,7 @@ static int mspi_ambiq_scramble_config(const struct device *controller,
 	const struct mspi_ambiq_config *cfg = controller->config;
 	struct mspi_ambiq_data *data = controller->data;
 	am_hal_mspi_dev_config_t hal_dev_cfg = data->hal_dev_cfg;
-	am_hal_mspi_request_e eRequest;
+	am_hal_mspi_scramble_config_t hal_scramble_cfg;
 	int ret = 0;
 
 	if (mspi_is_inp(controller)) {
@@ -817,39 +764,18 @@ static int mspi_ambiq_scramble_config(const struct device *controller,
 		return -ESTALE;
 	}
 
-	if (scramble_cfg->enable) {
-		eRequest = AM_HAL_MSPI_REQ_SCRAMB_EN;
-	} else {
-		eRequest = AM_HAL_MSPI_REQ_SCRAMB_DIS;
-	}
+	hal_scramble_cfg.bEnable             = scramble_cfg->enable;
+	hal_scramble_cfg.scramblingStartAddr = 0 + scramble_cfg->address_offset;
+	hal_scramble_cfg.scramblingEndAddr   = hal_dev_cfg.scramblingStartAddr + scramble_cfg->size;
 
-	ret = am_hal_mspi_disable(data->mspiHandle);
+	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_SCRAMB_CONFIG, &hal_scramble_cfg);
 	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to disable MSPI, code:%d.", __LINE__, ret);
-		return -EHOSTDOWN;
-	}
-
-	ret = am_hal_mspi_control(data->mspiHandle, eRequest, NULL);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u,Unable to complete scramble config:%d.", __LINE__,
-			     scramble_cfg->enable);
+		LOG_INST_ERR(cfg->log, "%u, Unable to complete scramble config.", __LINE__);
 		return -EHOSTDOWN;
 	}
 
 	hal_dev_cfg.scramblingStartAddr = 0 + scramble_cfg->address_offset;
 	hal_dev_cfg.scramblingEndAddr   = hal_dev_cfg.scramblingStartAddr + scramble_cfg->size;
-
-	ret = am_hal_mspi_device_configure(data->mspiHandle, &hal_dev_cfg);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to configure MSPI, code:%d.", __LINE__, ret);
-		return -EHOSTDOWN;
-	}
-
-	ret = am_hal_mspi_enable(data->mspiHandle);
-	if (ret) {
-		LOG_INST_ERR(cfg->log, "%u, fail to enable MSPI, code:%d.", __LINE__, ret);
-		return -EHOSTDOWN;
-	}
 
 	data->scramble_cfg = *scramble_cfg;
 	data->hal_dev_cfg  = hal_dev_cfg;
@@ -950,8 +876,23 @@ static void hal_mspi_callback(void *pCallbackCtxt, uint32_t status)
 {
 	const struct device *controller = pCallbackCtxt;
 	struct mspi_ambiq_data *data = controller->data;
+	struct mspi_context *ctx = &data->ctx;
+	volatile struct mspi_event *evt = &ctx->callback_ctx->mspi_evt;
 
-	data->ctx.packets_done++;
+	if (ctx->xfer.async && ctx->callback)
+	{
+		evt->evt_data.packet = &ctx->xfer.packets[ctx->packets_done];
+		evt->evt_data.packet_idx = ctx->packets_done;
+
+		if (evt->evt_data.packet->cb_mask == MSPI_BUS_XFER_COMPLETE_CB) {
+			evt->evt_type               = MSPI_BUS_XFER_COMPLETE;
+			evt->evt_data.controller    = controller;
+			evt->evt_data.dev_id        = ctx->owner;
+			evt->evt_data.status        = status;
+			ctx->callback(ctx->callback_ctx);
+		}
+	}
+	ctx->packets_done++;
 }
 
 static int mspi_pio_prepare(const struct device *controller,
@@ -1019,7 +960,6 @@ static int mspi_pio_transceive(const struct device *controller,
 	uint32_t packet_idx;
 	am_hal_mspi_pio_transfer_t trans;
 	int ret = 0;
-	int cfg_flag = 0;
 
 	if (xfer->num_packet == 0 ||
 	    !xfer->packets ||
@@ -1027,86 +967,34 @@ static int mspi_pio_transceive(const struct device *controller,
 		return -EFAULT;
 	}
 
-	cfg_flag = mspi_context_lock(ctx, data->dev_id, xfer, cb, cb_ctx, true);
-	/** For async, user must make sure when cfg_flag = 0 the dummy and instr addr length
-	 * in mspi_xfer of the two calls are the same if the first one has not finished yet.
-	 */
-	if (cfg_flag) {
-		if (cfg_flag == 1) {
-			ret = mspi_pio_prepare(controller, &trans);
-			if (ret) {
-				goto pio_err;
-			}
-		} else {
-			ret = cfg_flag;
-			goto pio_err;
-		}
+	if (xfer->async)
+	{
+		LOG_INST_ERR(cfg->log, "%u, async PIO not supported.", __LINE__);
+		return -ENOTSUP;
 	}
 
-	if (!ctx->xfer.async) {
+	mspi_context_lock(ctx, data->dev_id, xfer, cb, cb_ctx, true);
 
-		while (ctx->packets_left > 0) {
-			packet_idx               = ctx->xfer.num_packet - ctx->packets_left;
-			packet                   = &ctx->xfer.packets[packet_idx];
-			trans.eDirection         = packet->dir;
-			trans.ui16DeviceInstr    = (uint16_t)packet->cmd;
-			trans.ui32DeviceAddr     = packet->address;
-			trans.ui32NumBytes       = packet->num_bytes;
-			trans.pui32Buffer        = (uint32_t *)packet->data_buf;
+	ret = mspi_pio_prepare(controller, &trans);
+	if (ret) {
+		goto pio_err;
+	}
 
-			ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &trans,
-							    MSPI_TIMEOUT_US);
-			ctx->packets_left--;
-			if (ret) {
-				ret = -EIO;
-				goto pio_err;
-			}
-		}
+	while (ctx->packets_left > 0) {
+		packet_idx               = ctx->xfer.num_packet - ctx->packets_left;
+		packet                   = &ctx->xfer.packets[packet_idx];
+		trans.eDirection         = packet->dir;
+		trans.ui16DeviceInstr    = (uint16_t)packet->cmd;
+		trans.ui32DeviceAddr     = packet->address;
+		trans.ui32NumBytes       = packet->num_bytes;
+		trans.pui32Buffer        = (uint32_t *)packet->data_buf;
 
-	} else {
-
-		ret = am_hal_mspi_interrupt_enable(data->mspiHandle, AM_HAL_MSPI_INT_DMACMP);
+		ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &trans,
+							MSPI_TIMEOUT_US);
+		ctx->packets_left--;
 		if (ret) {
-			LOG_INST_ERR(cfg->log, "%u, failed to enable interrupt.", __LINE__);
-			ret = -EHOSTDOWN;
+			ret = -EIO;
 			goto pio_err;
-		}
-
-		while (ctx->packets_left > 0) {
-			packet_idx               = ctx->xfer.num_packet - ctx->packets_left;
-			packet                   = &ctx->xfer.packets[packet_idx];
-			trans.eDirection         = packet->dir;
-			trans.ui16DeviceInstr    = (uint16_t)packet->cmd;
-			trans.ui32DeviceAddr     = packet->address;
-			trans.ui32NumBytes       = packet->num_bytes;
-			trans.pui32Buffer        = (uint32_t *)packet->data_buf;
-
-			if (ctx->callback && packet->cb_mask == MSPI_BUS_XFER_COMPLETE_CB) {
-				ctx->callback_ctx->mspi_evt.evt_type = MSPI_BUS_XFER_COMPLETE;
-				ctx->callback_ctx->mspi_evt.evt_data.controller = controller;
-				ctx->callback_ctx->mspi_evt.evt_data.dev_id = data->ctx.owner;
-				ctx->callback_ctx->mspi_evt.evt_data.packet = packet;
-				ctx->callback_ctx->mspi_evt.evt_data.packet_idx = packet_idx;
-				ctx->callback_ctx->mspi_evt.evt_data.status = ~0;
-			}
-
-			am_hal_mspi_callback_t callback = NULL;
-
-			if (packet->cb_mask == MSPI_BUS_XFER_COMPLETE_CB) {
-				callback = (am_hal_mspi_callback_t)ctx->callback;
-			}
-
-			ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &trans, MSPI_PIO,
-							       callback, (void *)ctx->callback_ctx);
-			ctx->packets_left--;
-			if (ret) {
-				if (ret == AM_HAL_STATUS_OUT_OF_RANGE) {
-					ret = -ENOMEM;
-				} else {
-					ret = -EIO;
-				}
-				goto pio_err;
-			}
 		}
 	}
 
@@ -1123,9 +1011,9 @@ static int mspi_dma_transceive(const struct device *controller,
 	const struct mspi_ambiq_config *cfg = controller->config;
 	struct mspi_ambiq_data *data = controller->data;
 	struct mspi_context *ctx = &data->ctx;
-	am_hal_mspi_dma_transfer_t trans;
+	am_hal_mspi_seq_device_cfg_t  seq_dev_cfg;
+	am_hal_mspi_cq_scatter_xfer_t trans;
 	int ret = 0;
-	int cfg_flag = 0;
 
 	if (xfer->num_packet == 0 ||
 	    !xfer->packets ||
@@ -1133,20 +1021,17 @@ static int mspi_dma_transceive(const struct device *controller,
 		return -EFAULT;
 	}
 
-	cfg_flag = mspi_context_lock(ctx, data->dev_id, xfer, cb, cb_ctx, true);
-	/** For async, user must make sure when cfg_flag = 0 the dummy and instr addr length
-	 * in mspi_xfer of the two calls are the same if the first one has not finished yet.
-	 */
-	if (cfg_flag) {
-		if (cfg_flag == 1) {
-			ret = mspi_xfer_config(controller, xfer);
-			if (ret) {
-				goto dma_err;
-			}
-		} else {
-			ret = cfg_flag;
-			goto dma_err;
-		}
+	if (xfer->num_packet > MSPI_CQ_MAX_ENTRY) {
+		LOG_INST_ERR(cfg->log, "%u, Number of packets exceed %ld",
+			     __LINE__, MSPI_CQ_MAX_ENTRY);
+		return -ENOTSUP;
+	}
+
+	mspi_context_lock(ctx, data->dev_id, xfer, cb, cb_ctx, true);
+
+	ret = mspi_xfer_config_update(controller, xfer);
+	if (ret) {
+		goto dma_err;
 	}
 
 	ret = am_hal_mspi_interrupt_enable(data->mspiHandle, AM_HAL_MSPI_INT_DMACMP);
@@ -1156,57 +1041,74 @@ static int mspi_dma_transceive(const struct device *controller,
 		goto dma_err;
 	}
 
+	seq_dev_cfg.ui8InstrLen         = ctx->xfer.cmd_length;
+	seq_dev_cfg.ui8AddrLen          = ctx->xfer.addr_length;
+	seq_dev_cfg.ui8Turnaround       = ctx->xfer.rx_dummy;
+	seq_dev_cfg.ui8WriteLatency     = ctx->xfer.tx_dummy;
+	seq_dev_cfg.ui16TotalPackets    = ctx->xfer.num_packet;
+	seq_dev_cfg.eSeqMode            = ctx->xfer.num_packet == 1 ? AM_HAL_MSPI_SEQ_NORM_MODE:
+								      cfg->seq_mode;
+
+	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_SET_SEQMODE, &seq_dev_cfg);
+	if (ret)
+	{
+		LOG_INST_ERR(cfg->log, "%u, failed to set sequence mode.", __LINE__);
+		ret = -EHOSTDOWN;
+		goto dma_err;
+	}
+
 	while (ctx->packets_left > 0) {
 		uint32_t packet_idx = ctx->xfer.num_packet - ctx->packets_left;
-		const struct mspi_xfer_packet *packet;
+		const struct mspi_xfer_packet *packet = &ctx->xfer.packets[packet_idx];
 
-		packet                     = &ctx->xfer.packets[packet_idx];
-		trans.ui8Priority          = ctx->xfer.priority;
 		trans.eDirection           = packet->dir;
-		trans.ui32TransferCount    = packet->num_bytes;
+		trans.ui16DeviceInstr      = packet->cmd;
 		trans.ui32DeviceAddress    = packet->address;
 		trans.ui32SRAMAddress      = (uint32_t)packet->data_buf;
-		trans.ui32PauseCondition   = 0;
-		trans.ui32StatusSetClr     = 0;
+		trans.ui32TransferCount    = packet->num_bytes;
+		trans.ui8Priority          = ctx->xfer.priority;
+		trans.ui16PacketIndex      = packet_idx;
 
-		if (ctx->xfer.async) {
-
-			if (ctx->callback && packet->cb_mask == MSPI_BUS_XFER_COMPLETE_CB) {
-				ctx->callback_ctx->mspi_evt.evt_type = MSPI_BUS_XFER_COMPLETE;
-				ctx->callback_ctx->mspi_evt.evt_data.controller = controller;
-				ctx->callback_ctx->mspi_evt.evt_data.dev_id = data->ctx.owner;
-				ctx->callback_ctx->mspi_evt.evt_data.packet = packet;
-				ctx->callback_ctx->mspi_evt.evt_data.packet_idx = packet_idx;
-				ctx->callback_ctx->mspi_evt.evt_data.status = ~0;
-			}
-
-			am_hal_mspi_callback_t callback = NULL;
-
-			if (packet->cb_mask == MSPI_BUS_XFER_COMPLETE_CB) {
-				callback = (am_hal_mspi_callback_t)ctx->callback;
-			}
-
-			ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &trans, MSPI_DMA,
-							       callback, (void *)ctx->callback_ctx);
-		} else {
-			ret = am_hal_mspi_nonblocking_transfer(data->mspiHandle, &trans, MSPI_DMA,
-							       hal_mspi_callback,
-							       (void *)controller);
-		}
-		ctx->packets_left--;
+		ret = am_hal_mspi_cq_scatter_xfer(data->mspiHandle, &trans,
+						  hal_mspi_callback, (void *)controller);
 		if (ret) {
 			if (ret == AM_HAL_STATUS_OUT_OF_RANGE) {
+				LOG_INST_ERR(cfg->log, "%u, failed to transfer, cq out of memory.",
+					     __LINE__);
 				ret = -ENOMEM;
 			} else {
+				LOG_INST_ERR(cfg->log, "%u, failed to transfer, error %d",
+					     __LINE__, ret);
 				ret = -EIO;
+				am_hal_mspi_disable(data->mspiHandle);
+				am_hal_mspi_enable(data->mspiHandle);
 			}
 			goto dma_err;
 		}
+
+		ctx->packets_left--;
 	}
 
 	if (!ctx->xfer.async) {
-		while (ctx->packets_done < ctx->xfer.num_packet) {
+		uint32_t since = k_uptime_get_32();
+		uint32_t now = since;
+		uint32_t elapsed = 0;
+
+		while (ctx->packets_done < ctx->xfer.num_packet && elapsed < ctx->xfer.timeout) {
 			k_busy_wait(10);
+			now = k_uptime_get_32();
+			if (now > since) {
+				elapsed = now - since;
+			} else {
+				elapsed = now + (uint32_t) - since;
+			}
+		}
+		if (elapsed >= ctx->xfer.timeout && ctx->packets_done != ctx->xfer.num_packet) {
+			LOG_INST_ERR(cfg->log, "%u, failed to transfer, timeout.", __LINE__);
+			ret = -EIO;
+			am_hal_mspi_disable(data->mspiHandle);
+			am_hal_mspi_enable(data->mspiHandle);
+			goto dma_err;
 		}
 	}
 
@@ -1428,6 +1330,7 @@ static struct mspi_driver_api mspi_ambiq_driver_api = {
 		.mspicfg.re_init       = false,                                                  \
 		.pcfg                  = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                      \
 		.irq_cfg_func          = mspi_ambiq_irq_cfg_func_##n,                            \
+		.seq_mode              = AM_HAL_MSPI_SEQ_STREAM_MODE,                            \
 		LOG_INSTANCE_PTR_INIT(log, DT_DRV_INST(n), mspi##n)                              \
 	};                                                                                       \
 	PM_DEVICE_DT_INST_DEFINE(n, mspi_ambiq_pm_action);                                       \
