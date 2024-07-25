@@ -77,11 +77,11 @@ static inline int mspi_verify_device(const struct device *controller,
 				     const struct mspi_dev_id *dev_id)
 {
 	const struct mspi_emul_data *data = controller->data;
-	int device_index = data->mspicfg.num_slave;
+	int device_index = data->mspicfg.num_periph;
 	int ret = 0;
 
 	if (data->mspicfg.num_ce_gpios != 0) {
-		for (int i = 0; i < data->mspicfg.num_slave; i++) {
+		for (int i = 0; i < data->mspicfg.num_periph; i++) {
 			if (dev_id->ce.port == data->mspicfg.ce_group[i].port &&
 			    dev_id->ce.pin == data->mspicfg.ce_group[i].pin &&
 			    dev_id->ce.dt_flags == data->mspicfg.ce_group[i].dt_flags) {
@@ -89,13 +89,13 @@ static inline int mspi_verify_device(const struct device *controller,
 			}
 		}
 
-		if (device_index >= data->mspicfg.num_slave ||
+		if (device_index >= data->mspicfg.num_periph ||
 		    device_index != dev_id->dev_idx) {
 			LOG_ERR("%u, invalid device ID.", __LINE__);
 			return -ENODEV;
 		}
 	} else {
-		if (dev_id->dev_idx >= data->mspicfg.num_slave) {
+		if (dev_id->dev_idx >= data->mspicfg.num_periph) {
 			LOG_ERR("%u, invalid device ID.", __LINE__);
 			return -ENODEV;
 		}
@@ -441,7 +441,7 @@ static int mspi_emul_config(const struct mspi_dt_spec *spec)
 
 	int ret = 0;
 
-	if (config->op_mode > MSPI_OP_MODE_SLAVE) {
+	if (config->op_mode > MSPI_OP_MODE_PERIPHERAL) {
 		LOG_ERR("%u, Invalid MSPI OP mode.", __LINE__);
 		return -EINVAL;
 	}
@@ -456,13 +456,13 @@ static int mspi_emul_config(const struct mspi_dt_spec *spec)
 		return -EINVAL;
 	}
 
-	if (config->num_slave > MSPI_MAX_DEVICE) {
+	if (config->num_periph > MSPI_MAX_DEVICE) {
 		LOG_ERR("%u, Invalid MSPI Slave Number.", __LINE__);
 		return -ENOTSUP;
 	}
 
 	if (config->num_ce_gpios != 0 &&
-	    config->num_ce_gpios != config->num_slave) {
+	    config->num_ce_gpios != config->num_periph) {
 		LOG_ERR("%u, Invalid number of ce_gpios.", __LINE__);
 		return -EINVAL;
 	}
@@ -529,7 +529,7 @@ static int mspi_emul_dev_config(const struct device *controller,
 	}
 
 	if (param_mask == MSPI_DEVICE_CONFIG_NONE &&
-	    !data->mspicfg.sw_multi_slave) {
+	    !data->mspicfg.sw_multi_periph) {
 		/* Do nothing except obtaining the controller lock */
 	} else if (param_mask < MSPI_DEVICE_CONFIG_ALL) {
 		if (data->dev_id != dev_id) {
@@ -860,11 +860,11 @@ static struct emul_mspi_driver_api emul_mspi_driver_api = {
 #define MSPI_CONFIG(n)                                                                            \
 	{                                                                                         \
 		.channel_num           = EMUL_MSPI_INST_ID,                                       \
-		.op_mode               = DT_ENUM_IDX_OR(n, op_mode, MSPI_OP_MODE_MASTER),         \
+		.op_mode               = DT_ENUM_IDX_OR(n, op_mode, MSPI_OP_MODE_CONTROLLER),     \
 		.duplex                = DT_ENUM_IDX_OR(n, duplex, MSPI_HALF_DUPLEX),             \
 		.max_freq              = DT_INST_PROP(n, clock_frequency),                        \
 		.dqs_support           = DT_INST_PROP_OR(n, dqs_support, false),                  \
-		.sw_multi_slave        = DT_INST_PROP(n, software_multislave),                    \
+		.sw_multi_periph       = DT_INST_PROP(n, software_multiperipheral),               \
 	}
 
 #define EMUL_LINK_AND_COMMA(node_id)                                                              \
@@ -884,7 +884,7 @@ static struct emul_mspi_driver_api emul_mspi_driver_api = {
 		.mspicfg               = MSPI_CONFIG(n),                                          \
 		.mspicfg.ce_group      = (struct gpio_dt_spec *)ce_gpios##n,                      \
 		.mspicfg.num_ce_gpios  = ARRAY_SIZE(ce_gpios##n),                                 \
-		.mspicfg.num_slave     = DT_INST_CHILD_NUM(n),                                    \
+		.mspicfg.num_periph    = DT_INST_CHILD_NUM(n),                                    \
 		.mspicfg.re_init       = false,                                                   \
 		.dev_id                = 0,                                                       \
 		.lock                  = Z_MUTEX_INITIALIZER(mspi_emul_data_##n.lock),            \
