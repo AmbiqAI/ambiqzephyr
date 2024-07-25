@@ -122,7 +122,7 @@ The mspi controller's bindings should reference mspi-controller.yaml as one of t
             #size-cells = < 0x0 >;
 
             clock-frequency = < 0x17d7840 >;
-            op-mode = "MSPI_MASTER";
+            op-mode = "MSPI_CONTROLLER";
             duplex = "MSPI_HALF_DUPLEX";
             ce-gpios = < &gpio0 0x5 0x1 >, < &gpio0 0x12 0x1 >;
             dqs-support;
@@ -165,8 +165,8 @@ User should specify target operating parameters in the DTS such as ``mspi-max-fr
 ``mspi-io-mode`` and ``mspi-data-rate`` even though they may subject to change during runtime.
 It should represent the typical configuration of the device during normal operations.
 
-Multi-slave
-===========
+Multi Peripheral
+================
 With :c:struct:`mspi_dev_id` defined as collection of the device index and CE GPIO from
 device tree, the API supports multiple devices on the same controller instance.
 The controller driver implementation may or may not support device switching,
@@ -186,7 +186,7 @@ Related configuration options:
 
 * :kconfig:option:`CONFIG_MSPI`
 * :kconfig:option:`CONFIG_MSPI_ASYNC`
-* :kconfig:option:`CONFIG_MSPI_SLAVE`
+* :kconfig:option:`CONFIG_MSPI_PERIPHERAL`
 * :kconfig:option:`CONFIG_MSPI_XIP`
 * :kconfig:option:`CONFIG_MSPI_SCRAMBLE`
 * :kconfig:option:`CONFIG_MSPI_TIMING`

@@ -56,7 +56,7 @@ properties:
     type: int
     description: |
       MSPI hardware CE number.
-      MSPI controller may natively support multiple slave devices
+      MSPI controller may natively support multiple peripheral devices
       on the same MSPI instance by assigning designated CE numbers.
 
   mspi-cpp-mode:
@@ -99,7 +99,7 @@ properties:
   mspi-hold-ce:
     type: boolean
     description: |
-      In some cases, it is necessary for the master to manage
+      In some cases, it is necessary for the controller to manage
       MSPI chip enable (under software control), so that multiple
       mspi transactions can be performed without releasing CE.
       A typical use case is variable length MSPI packets where

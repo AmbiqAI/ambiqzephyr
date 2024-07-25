@@ -19,11 +19,11 @@ config MSPI_ASYNC
 	help
 	  This option enables the asynchronous API calls.
 
-config MSPI_SLAVE
-	bool "Slave support"
+config MSPI_PERIPHERAL
+	bool "Peripheral support"
 	help
-	  Enables Driver MSPI slave operations. Slave support depends
-	  on the driver and the hardware it runs on.
+	  Enables Driver MSPI peripheral mode operations. Peripheral mode
+	  support depends on the driver and the hardware it runs on.
 
 config MSPI_INIT_PRIORITY
 	int "Init priority"

@@ -22,10 +22,10 @@ properties:
   op-mode:
     type: string
     enum:
-      - "MSPI_MASTER"
-      - "MSPI_SLAVE"
+      - "MSPI_CONTROLLER"
+      - "MSPI_PERIPHERAL"
     description: |
-      Indicate MSPI master or slave mode of the controller.
+      Indicate MSPI controller or peripheral mode of the controller.
       The controller driver may use this during initialization.
 
   duplex:
@@ -45,11 +45,11 @@ properties:
       The controller driver may check this setting against its
       capabilities.
 
-  software-multislave:
+  software-multiperipheral:
     type: boolean
     description: |
       Indicate whether the controller driver enables support for
-      software managed multi-slave feature.
+      software managed multi peripheral feature.
       At the minimum, the controller driver should use it to allow
       or disallow calling mspi_dev_config with MSPI_DEVICE_CONFIG_NONE.
 

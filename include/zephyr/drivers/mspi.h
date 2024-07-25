@@ -35,8 +35,8 @@ extern "C" {
  * @brief MSPI operational mode
  */
 enum mspi_op_mode {
-	MSPI_OP_MODE_MASTER         = 0,
-	MSPI_OP_MODE_SLAVE          = 1,
+	MSPI_OP_MODE_CONTROLLER     = 0,
+	MSPI_OP_MODE_PERIPHERAL     = 1,
 };
 
 /**
@@ -229,14 +229,14 @@ struct mspi_cfg {
 	enum mspi_duplex        duplex;
 	/** @brief DQS support flag */
 	bool                    dqs_support;
-	/** @brief Software managed multi-slave enable */
-	bool                    sw_multi_slave;
+	/** @brief Software managed multi peripheral enable */
+	bool                    sw_multi_periph;
 	/** @brief GPIO chip select lines (optional) */
 	struct gpio_dt_spec     *ce_group;
 	/** @brief GPIO chip-select line numbers (optional) */
 	uint32_t                num_ce_gpios;
-	/** @brief Slave number from 0 to host controller slave limit. */
-	uint32_t                num_slave;
+	/** @brief Peripheral number from 0 to host controller peripheral limit. */
+	uint32_t                num_periph;
 	/** @brief Maximum supported frequency in MHz */
 	uint32_t                max_freq;
 	/** @brief Whether to re-initialize controller */
@@ -422,7 +422,7 @@ struct mspi_xfer {
 struct mspi_event_data {
 	/** @brief Pointer to the bus controller */
 	const struct device         *controller;
-	/** @brief Pointer to the slave device ID */
+	/** @brief Pointer to the peripheral device ID */
 	const struct mspi_dev_id    *dev_id;
 	/** @brief Pointer to a transfer packet */
 	const struct mspi_xfer_packet *packet;
@@ -532,7 +532,7 @@ __subsystem struct mspi_driver_api {
  * @retval 0 If successful.
  * @retval -EIO General input / output error, failed to configure device.
  * @retval -EINVAL invalid capabilities, failed to configure device.
- * @retval -ENOTSUP capability not supported by MSPI slave.
+ * @retval -ENOTSUP capability not supported by MSPI peripheral.
  */
 __syscall int mspi_config(const struct mspi_dt_spec *spec);
 
@@ -568,7 +568,7 @@ static inline int z_impl_mspi_config(const struct mspi_dt_spec *spec)
  * @retval 0 If successful.
  * @retval -EIO General input / output error, failed to configure device.
  * @retval -EINVAL invalid capabilities, failed to configure device.
- * @retval -ENOTSUP capability not supported by MSPI slave.
+ * @retval -ENOTSUP capability not supported by MSPI peripheral.
  */
 __syscall int mspi_dev_config(const struct device *controller,
 			      const struct mspi_dev_id *dev_id,
@@ -672,7 +672,7 @@ static inline int z_impl_mspi_transceive(const struct device *controller,
  * @retval 0 If successful.
  * @retval -EIO General input / output error, failed to configure device.
  * @retval -EINVAL invalid capabilities, failed to configure device.
- * @retval -ENOTSUP capability not supported by MSPI slave.
+ * @retval -ENOTSUP capability not supported by MSPI peripheral.
  */
 __syscall int mspi_xip_config(const struct device *controller,
 			      const struct mspi_dev_id *dev_id,
@@ -704,7 +704,7 @@ static inline int z_impl_mspi_xip_config(const struct device *controller,
  * @retval 0 If successful.
  * @retval -EIO General input / output error, failed to configure device.
  * @retval -EINVAL invalid capabilities, failed to configure device.
- * @retval -ENOTSUP capability not supported by MSPI slave.
+ * @retval -ENOTSUP capability not supported by MSPI peripheral.
  */
 __syscall int mspi_scramble_config(const struct device *controller,
 				   const struct mspi_dev_id *dev_id,
@@ -737,7 +737,7 @@ static inline int z_impl_mspi_scramble_config(const struct device *controller,
  * @retval 0 If successful.
  * @retval -EIO General input / output error, failed to configure device.
  * @retval -EINVAL invalid capabilities, failed to configure device.
- * @retval -ENOTSUP capability not supported by MSPI slave.
+ * @retval -ENOTSUP capability not supported by MSPI peripheral.
  */
 __syscall int mspi_timing_config(const struct device *controller,
 				 const struct mspi_dev_id *dev_id,
