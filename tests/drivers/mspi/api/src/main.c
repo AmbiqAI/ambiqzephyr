@@ -31,12 +31,12 @@ static struct gpio_dt_spec ce_gpios[] = MSPI_CE_GPIOS_DT_SPEC_GET(MSPI_BUS_NODE)
 #if TEST_MSPI_REINIT
 struct mspi_cfg hardware_cfg = {
 	.channel_num              = 0,
-	.op_mode                  = DT_PROP_OR(MSPI_BUS_NODE, op_mode, MSPI_OP_MODE_MASTER),
+	.op_mode                  = DT_PROP_OR(MSPI_BUS_NODE, op_mode, MSPI_OP_MODE_CONTROLLER),
 	.duplex                   = DT_PROP_OR(MSPI_BUS_NODE, duplex, MSPI_HALF_DUPLEX),
 	.dqs_support              = DT_PROP_OR(MSPI_BUS_NODE, dqs_support, false),
 	.ce_group                 = ce_gpios,
 	.num_ce_gpios             = ARRAY_SIZE(ce_gpios),
-	.num_slave                = DT_CHILD_NUM(MSPI_BUS_NODE),
+	.num_periph               = DT_CHILD_NUM(MSPI_BUS_NODE),
 	.max_freq                 = DT_PROP(MSPI_BUS_NODE, clock_frequency),
 	.re_init                  = true,
 };

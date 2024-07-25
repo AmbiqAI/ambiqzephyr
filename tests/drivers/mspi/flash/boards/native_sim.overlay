@@ -15,7 +15,7 @@
 	ce-gpios = <&gpio0 5 GPIO_ACTIVE_LOW>,
 		   <&gpio0 18 GPIO_ACTIVE_LOW>;
 	dqs-support;
-	software-multislave;
+	software-multiperipheral;
 
 	flash_dummy0: flash_dummy0@0 {
 		status = "okay";
