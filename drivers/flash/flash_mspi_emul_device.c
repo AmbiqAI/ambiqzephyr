@@ -33,7 +33,7 @@ struct flash_mspi_emul_device_config {
 	struct mspi_xip_cfg                 tar_xip_cfg;
 	struct mspi_scramble_cfg            tar_scramble_cfg;
 
-	bool                                sw_multi_slave;
+	bool                                sw_multi_periph;
 };
 
 struct flash_mspi_emul_device_data {
@@ -61,7 +61,7 @@ static void acquire(const struct device *flash)
 	struct flash_mspi_emul_device_data *data = flash->data;
 
 	k_sem_take(&data->lock, K_FOREVER);
-	if (cfg->sw_multi_slave) {
+	if (cfg->sw_multi_periph) {
 		while (mspi_dev_config(data->bus, &cfg->dev_id,
 				       MSPI_DEVICE_CONFIG_ALL, &data->dev_cfg))
 			;
@@ -430,7 +430,7 @@ static int flash_mspi_emul_device_init_stub(const struct device *dev)
 		.tar_dev_cfg              = MSPI_DEVICE_CONFIG_DT_INST(n),                        \
 		.tar_xip_cfg              = MSPI_XIP_CONFIG_DT_INST(n),                           \
 		.tar_scramble_cfg         = MSPI_SCRAMBLE_CONFIG_DT_INST(n),                      \
-		.sw_multi_slave           = DT_PROP(DT_INST_BUS(n), software_multislave)          \
+		.sw_multi_periph          = DT_PROP(DT_INST_BUS(n), software_multiperipheral)     \
 	};                                                                                        \
 	static struct flash_mspi_emul_device_data flash_mspi_emul_device_data_##n = {             \
 		.lock = Z_SEM_INITIALIZER(flash_mspi_emul_device_data_##n.lock, 0, 1),            \

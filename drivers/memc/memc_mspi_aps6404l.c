@@ -51,7 +51,7 @@ struct memc_mspi_aps6404l_config {
 	mspi_timing_cfg                tar_timing_cfg;
 	mspi_timing_param              timing_cfg_mask;
 
-	bool                           sw_multi_slave;
+	bool                           sw_multi_periph;
 };
 
 struct memc_mspi_aps6404l_data {
@@ -142,7 +142,7 @@ static void acquire(const struct device *psram)
 
 	k_sem_take(&data->lock, K_FOREVER);
 
-	if (cfg->sw_multi_slave) {
+	if (cfg->sw_multi_periph) {
 		while (mspi_dev_config(cfg->bus, &cfg->dev_id,
 				       MSPI_DEVICE_CONFIG_ALL, &data->dev_cfg))
 			;
@@ -440,7 +440,7 @@ static int memc_mspi_aps6404l_init(const struct device *psram)
 		.tar_scramble_cfg   = MSPI_SCRAMBLE_CONFIG_DT_INST(n),                            \
 		.tar_timing_cfg     = MSPI_TIMING_CONFIG(n),                                      \
 		.timing_cfg_mask    = MSPI_TIMING_CONFIG_MASK(n),                                 \
-		.sw_multi_slave     = DT_PROP(DT_INST_BUS(n), software_multislave)                \
+		.sw_multi_periph    = DT_PROP(DT_INST_BUS(n), software_multiperipheral)           \
 	};                                                                                        \
 	static struct memc_mspi_aps6404l_data                                                     \
 		memc_mspi_aps6404l_data_##n = {                                                   \
