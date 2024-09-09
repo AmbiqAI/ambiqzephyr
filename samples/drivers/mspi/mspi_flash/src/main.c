@@ -15,14 +15,20 @@
 
 #define SPI_FLASH_SECTOR_SIZE        4096
 
+#define MSPI_BUFFER_SIZE             256
+
 #define SPI_FLASH_MULTI_SECTOR_TEST
 
 int single_sector_test(const struct device *flash_dev)
 {
-	const uint8_t expected[] = { 0x55, 0xaa, 0x66, 0x99 };
-	const size_t len = sizeof(expected);
-	uint8_t buf[sizeof(expected)];
+	uint8_t expected[MSPI_BUFFER_SIZE] __attribute__((aligned(16)));
+	const size_t len = MSPI_BUFFER_SIZE;
+	uint8_t buf[MSPI_BUFFER_SIZE] __attribute__((aligned(16)));
 	int rc;
+
+	for (uint32_t i = 0; i < MSPI_BUFFER_SIZE; i++) {
+		expected[i] = (i & 0xFF);
+	}
 
 	printf("\nPerform test on single sector");
 	/* Write protection needs to be disabled before each write or
@@ -40,7 +46,22 @@ int single_sector_test(const struct device *flash_dev)
 	if (rc != 0) {
 		printf("Flash erase failed! %d\n", rc);
 	} else {
-		printf("Flash erase succeeded!\n");
+		/* Read the content and check for erased */
+		memset(buf, 0, len);
+		size_t offs = SPI_FLASH_TEST_REGION_OFFSET;
+
+		rc = flash_read(flash_dev, offs, buf, len);
+		if (rc != 0) {
+			printf("Flash read failed! %d\n", rc);
+			return 1;
+		}
+		if (buf[0] != 0xff) {
+			printf("Flash erase failed at offset 0x%x got 0x%x\n", offs,
+					buf[0]);
+			return 1;
+		}
+
+		printf("\nFlash erase succeeded!\n");
 	}
 
 	printf("\nTest 2: Flash write\n");
@@ -74,6 +95,7 @@ int single_sector_test(const struct device *flash_dev)
 			++rp;
 			++wp;
 		}
+		return 1;
 	}
 	return rc;
 }
@@ -120,7 +142,7 @@ int multi_sector_test(const struct device *flash_dev)
 			}
 			offs += SPI_FLASH_SECTOR_SIZE;
 		}
-		printf("Flash erase succeeded!\n");
+		printf("\nFlash erase succeeded!\n");
 	}
 
 	printf("\nTest 2: Flash write\n");
@@ -157,6 +179,7 @@ int multi_sector_test(const struct device *flash_dev)
 				++rp;
 				++wp;
 			}
+			return 1;
 		}
 		offs += SPI_FLASH_SECTOR_SIZE;
 	}

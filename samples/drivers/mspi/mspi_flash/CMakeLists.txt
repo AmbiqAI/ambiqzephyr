@@ -11,3 +11,8 @@ if(CONFIG_FLASH_MSPI_ATXP032)
   target_include_directories(app PRIVATE ${ZEPHYR_BASE}/include/zephyr/drivers)
   target_include_directories(app PRIVATE ${ZEPHYR_BASE}/drivers/mspi)
 endif()
+
+if(CONFIG_FLASH_MSPI_APS256)
+  target_include_directories(app PRIVATE ${ZEPHYR_BASE}/include/zephyr/drivers)
+  target_include_directories(app PRIVATE ${ZEPHYR_BASE}/drivers/mspi)
+endif()
