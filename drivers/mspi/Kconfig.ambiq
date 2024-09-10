@@ -38,6 +38,7 @@ config MSPI_AMBIQ_BUFF_RAM_LOCATION
 config MSPI_AMBIQ_BUFF_ALIGNMENT
 	int "byte alignment of the MSPI buffer"
 	default 8 if MSPI_AMBIQ_AP3
+	default 16 if MSPI_AMBIQ_AP4
 	default 4
 	help
 	  This option specifies the mspi buffer alignment
