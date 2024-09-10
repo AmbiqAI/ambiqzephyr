@@ -34,7 +34,7 @@
 	ambiq,rx-config = <2 0 0 0 1 0 0 0 0 0>;
 
 	aps256: aps256@0 {
-		compatible = "mspi-aps256";
+		compatible = "ambiq,mspi-device", "mspi-aps256";
 		size = <DT_SIZE_M(32)>;
 		reg = <0>;
 		status = "okay";
