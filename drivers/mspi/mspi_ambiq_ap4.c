@@ -310,10 +310,10 @@ static inline int mspi_verify_device(const struct device *controller,
 				     const struct mspi_dev_id *dev_id)
 {
 	const struct mspi_ambiq_config *cfg = controller->config;
-	int device_index = cfg->mspicfg.num_slave;
+	int device_index = cfg->mspicfg.num_periph;
 	int ret = 0;
 
-	for (int i = 0; i < cfg->mspicfg.num_slave; i++) {
+	for (int i = 0; i < cfg->mspicfg.num_periph; i++) {
 		if (dev_id->ce.port == cfg->mspicfg.ce_group[i].port &&
 		    dev_id->ce.pin == cfg->mspicfg.ce_group[i].pin &&
 		    dev_id->ce.dt_flags == cfg->mspicfg.ce_group[i].dt_flags) {
@@ -321,7 +321,7 @@ static inline int mspi_verify_device(const struct device *controller,
 		}
 	}
 
-	if (device_index >= cfg->mspicfg.num_slave ||
+	if (device_index >= cfg->mspicfg.num_periph ||
 	    device_index != dev_id->dev_idx) {
 		LOG_INST_ERR(cfg->log, "%u, invalid device ID.", __LINE__);
 		return -ENODEV;
@@ -475,8 +475,8 @@ static int mspi_ambiq_config(const struct mspi_dt_spec *spec)
 
 	int ret = 0;
 
-	if (config->op_mode != MSPI_OP_MODE_MASTER) {
-		LOG_INST_ERR(cfg->log, "%u, only support MSPI master.", __LINE__);
+	if (config->op_mode != MSPI_OP_MODE_CONTROLLER) {
+		LOG_INST_ERR(cfg->log, "%u, only support MSPI controller.", __LINE__);
 		return -ENOTSUP;
 	}
 
@@ -585,7 +585,7 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 	}
 
 	if (param_mask == MSPI_DEVICE_CONFIG_NONE &&
-	    !cfg->mspicfg.sw_multi_slave) {
+	    !cfg->mspicfg.sw_multi_periph) {
 		/* Do nothing except obtaining the controller lock */
 		data->dev_id = (struct mspi_dev_id *)dev_id;
 		return ret;
@@ -1413,12 +1413,12 @@ static struct mspi_driver_api mspi_ambiq_driver_api = {
 	{                                                                                        \
 		.channel_num           = (DT_INST_REG_ADDR(n) - MSPI0_BASE) /             \
 					 (DT_INST_REG_SIZE(n) * 4),                              \
-		.op_mode               = MSPI_OP_MODE_MASTER,                                    \
+		.op_mode               = MSPI_OP_MODE_CONTROLLER,                                    \
 		.duplex                = MSPI_HALF_DUPLEX,                                       \
 		.max_freq              = MSPI_MAX_FREQ,                                          \
 		.dqs_support           = false,                                                  \
-		.num_slave             = DT_INST_CHILD_NUM(n),                                   \
-		.sw_multi_slave        = DT_INST_PROP(n, software_multislave),                   \
+		.num_periph             = DT_INST_CHILD_NUM(n),                                   \
+		.sw_multi_periph        = DT_INST_PROP(n, software_multiperipheral),                   \
 	}
 
 #define MSPI_HAL_DEVICE_CONFIG(n)                                       \
