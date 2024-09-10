@@ -194,7 +194,6 @@ static int flash_mspi_aps256_enter_hex_mode(const struct device *flash)
 {
 	uint8_t io_mode_reg = 0;
 	uint32_t raw_data;
-	struct flash_mspi_aps256_data *data = flash->data;
 	int ret;
 
 	ret = flash_mspi_aps256_command_read(flash, MSPI_PSRAM_DDR_READ_REGISTER, 8, 4, 6,
