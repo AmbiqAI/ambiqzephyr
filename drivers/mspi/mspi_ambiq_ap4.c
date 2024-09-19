@@ -936,7 +936,7 @@ static int mspi_ambiq_timing_config(const struct device *controller,
 	}
 
 	if (dev_id != data->dev_id) {
-		LOG_INST_ERR(cfg->log, "%u, dev_id don't match.", __LINE__);
+		LOG_INST_ERR(cfg->log, "%u, dev_id doesn't match.", __LINE__);
 		return -ESTALE;
 	}
 
@@ -950,6 +950,10 @@ static int mspi_ambiq_timing_config(const struct device *controller,
 	}
 
 	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_NAND_FLASH_SET_WLAT, &hal_dev_cfg);
+	if (ret) {
+		LOG_INST_ERR(cfg->log, "%u, failed to configure Write Latency.", __LINE__);
+		return -EHOSTDOWN;
+	}
 
 	if (param_mask & MSPI_AMBIQ_SET_RLC) {
 		if (time_cfg->ui8TurnAround) {
@@ -970,7 +974,6 @@ static int mspi_ambiq_timing_config(const struct device *controller,
 	}
 
 	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_TIMING_SCAN, &timing);
-
 	if (ret) {
 		LOG_INST_ERR(cfg->log, "%u, fail to configure timing.", __LINE__);
 		return -EHOSTDOWN;
