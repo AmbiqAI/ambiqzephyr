@@ -106,7 +106,7 @@ static int flash_mspi_aps256_command_write(const struct device *flash, uint16_t 
 	data->trans.hold_ce           = false;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
-	data->trans.timeout           = 10;
+	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
 
 	ret = mspi_transceive(cfg->bus, &cfg->dev_id, (const struct mspi_xfer *)&data->trans);
 	if (ret) {
@@ -139,7 +139,7 @@ static int flash_mspi_aps256_command_read(const struct device *flash, uint16_t c
 	data->trans.hold_ce           = false;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
-	data->trans.timeout           = 10;
+	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
 
 	ret = mspi_transceive(cfg->bus, &cfg->dev_id, (const struct mspi_xfer *)&data->trans);
 	if (ret) {

@@ -41,7 +41,7 @@ am_hal_mspi_timing_scan_t g_sApplyCfg =
 
 am_hal_mspi_dqs_t g_sMspiDqsCfg =
 {
-	.bDQSEnable             = true,
+	.bDQSEnable             = false,
 	.bDQSSyncNeg            = 0,
 	.bEnableFineDelay       = 0,
 	.ui8TxDQSDelay          = 0,
@@ -321,7 +321,7 @@ static inline int mspi_verify_device(const struct device *controller,
 		}
 	}
 
-	if (device_index >= cfg->mspicfg.num_periph ||
+	if (device_index > cfg->mspicfg.num_periph ||
 	    device_index != dev_id->dev_idx) {
 		LOG_INST_ERR(cfg->log, "%u, invalid device ID.", __LINE__);
 		return -ENODEV;
@@ -702,8 +702,6 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 			goto e_return;
 		}
 
-		hal_dev_cfg.eSpiMode = dev_cfg->io_mode;
-
 		hal_dev_cfg.bEmulateDDR = dev_cfg->data_rate ? true : false;
 		hal_dev_cfg.eSpiMode           = dev_cfg->cpp;
 		hal_dev_cfg.bEnWriteLatency    = (dev_cfg->tx_dummy != 0);
@@ -779,15 +777,19 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 		}
 
 		am_hal_mspi_dqs_t * dqsCfg = &g_sMspiDqsCfg;
-		dqsCfg->bDQSEnable = dev_cfg->dqs_enable;
+		//dqsCfg->bDQSEnable = data->dev_cfg.dqs_enable;
 		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_DQS, dqsCfg);
 		if (ret) {
 			LOG_INST_ERR(cfg->log, "%u, failed AM_HAL_MSPI_REQ_DQS, code:%d.", __LINE__, ret);
 			ret = -EHOSTDOWN;
 			goto e_return;
 		}
-		data->hal_rx_cfg.ui8Sfturn = 10;
-		data->hal_rx_cfg.bTaForth = 1;
+
+		if (hal_dev_cfg.bEmulateDDR == true){
+			data->hal_rx_cfg.ui8Sfturn = 10;
+			data->hal_rx_cfg.bTaForth = 1;
+		}
+
 		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_RXCFG, &data->hal_rx_cfg);
 		if (ret) {
 			LOG_INST_ERR(cfg->log, "%u, failed AM_HAL_MSPI_REQ_RXCFG, code:%d.", __LINE__, ret);
@@ -802,7 +804,7 @@ static int mspi_ambiq_dev_config(const struct device *controller,
 			goto e_return;
 		}
 
-		if (data->dev_id != dev_id || data->hal_dev_cfg.eDeviceConfig == AM_HAL_MSPI_FLASH_HEX_DDR_CE0) {
+		if (hal_dev_cfg.eDeviceConfig != AM_HAL_MSPI_FLASH_SERIAL_CE0) {
 			ret = pinctrl_apply_state(cfg->pcfg,
 						  PINCTRL_STATE_PRIV_START + dev_id->dev_idx);
 			if (ret) {
@@ -867,7 +869,6 @@ static int mspi_ambiq_scramble_config(const struct device *controller,
 	const struct mspi_ambiq_config *cfg = controller->config;
 	struct mspi_ambiq_data *data = controller->data;
 	am_hal_mspi_xip_config_t hal_xip_cfg = data->hal_xip_cfg;
-	am_hal_mspi_dev_config_t hal_dev_cfg = data->hal_dev_cfg;
 	am_hal_mspi_request_e eRequest;
 	int ret = 0;
 
@@ -915,7 +916,6 @@ static int mspi_ambiq_scramble_config(const struct device *controller,
 	}
 
 	data->scramble_cfg = *scramble_cfg;
-	data->hal_dev_cfg  = hal_dev_cfg;
 	return ret;
 }
 
@@ -962,9 +962,11 @@ static int mspi_ambiq_timing_config(const struct device *controller,
 
 	timing.ui8Turnaround   = hal_dev_cfg.ui8TurnAround;
 
-	if (param_mask & MSPI_AMBIQ_SET_RXDQSDLY) {
-		timing.ui8RxDQSDelay = time_cfg->ui32RxDQSDelay;
-		timing.bTxNeg = 1;
+	if (hal_dev_cfg.bEmulateDDR == true){
+		if (param_mask & MSPI_AMBIQ_SET_RXDQSDLY) {
+			timing.ui8RxDQSDelay = time_cfg->ui32RxDQSDelay;
+			timing.bTxNeg = 1;
+		}
 	}
 
 	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_TIMING_SCAN, &timing);
@@ -1191,7 +1193,7 @@ static int mspi_dma_transceive(const struct device *controller,
 	 */
 	if (cfg_flag) {
 		if (cfg_flag == 1) {
-			//ret = mspi_xfer_config(controller, xfer);
+			ret = mspi_xfer_config(controller, xfer);
 			if (ret) {
 				goto dma_err;
 			}

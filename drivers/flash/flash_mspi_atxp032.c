@@ -129,7 +129,7 @@ static int flash_mspi_atxp032_command_write(const struct device *flash, uint8_t 
 	data->trans.hold_ce           = false;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
-	data->trans.timeout           = 10;
+	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
 
 	ret = mspi_transceive(cfg->bus, &cfg->dev_id, (const struct mspi_xfer *)&data->trans);
 	if (ret) {
@@ -161,7 +161,7 @@ static int flash_mspi_atxp032_command_read(const struct device *flash, uint8_t c
 	data->trans.hold_ce           = false;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
-	data->trans.timeout           = 10;
+	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
 
 	ret = mspi_transceive(cfg->bus, &cfg->dev_id, (const struct mspi_xfer *)&data->trans);
 	if (ret) {
@@ -668,7 +668,7 @@ static int flash_mspi_atxp032_init(const struct device *flash)
 		return -EIO;
 	}
 
-	if (mspi_dev_config(cfg->bus, &cfg->dev_id, MSPI_DEVICE_CONFIG_ALL, &cfg->tar_dev_cfg)) {
+	if (mspi_dev_config(cfg->bus, &cfg->dev_id, MSPI_DEVICE_CONFIG_IO_MODE, &cfg->tar_dev_cfg)) {
 		LOG_ERR("Failed to config mspi controller/%u", __LINE__);
 		return -EIO;
 	}
