@@ -1,0 +1,26 @@
+# Ambiq I2S driver configuration options
+
+# Copyright (c) 2024 Ambiq
+# SPDX-License-Identifier: Apache-2.0
+
+config I2S_AMBIQ
+	bool "AMBIQ I2S driver"
+	default y
+	depends on DT_HAS_AMBIQ_I2S_ENABLED
+	select AMBIQ_HAL
+	select AMBIQ_HAL_USE_I2S
+	help
+	  Enable I2S support on the Ambiq family of processors.
+	  (Tested on the Apollo4 Plus & Apollo4 Blue Plus series)
+
+if I2S_AMBIQ
+
+config I2S_AMBIQ_RX_BLOCK_COUNT
+	int "RX queue length"
+	default 256
+
+config I2S_AMBIQ_TX_BLOCK_COUNT
+	int "TX queue length"
+	default 256
+
+endif # I2S_AMBIQ

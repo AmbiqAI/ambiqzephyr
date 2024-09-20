@@ -74,6 +74,20 @@
 	status = "okay";
 };
 
+&i2s0 {
+	compatible = "ambiq,i2s";
+	pinctrl-0 = <&i2s0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&i2s1 {
+	compatible = "ambiq,i2s";
+	pinctrl-0 = <&i2s1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 &rtc0 {
 	status = "okay";
 	clock = "XTAL";

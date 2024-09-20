@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2024 Ambiq <www.ambiq.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+description: Ambiq I2S controller
+
+compatible: "ambiq,i2s"
+include: [i2s-controller.yaml, pinctrl-device.yaml, ambiq-pwrcfg.yaml]
+
+properties:
+  reg:
+    required: true
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+  interrupts:
+    required: true
+
+  ambiq,pwrcfg:
+    required: true

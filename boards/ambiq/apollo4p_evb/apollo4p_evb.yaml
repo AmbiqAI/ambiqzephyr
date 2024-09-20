@@ -17,6 +17,7 @@ supported:
   - rtc
   - adc
   - hwinfo
+  - i2s
 testing:
   ignore_tags:
     - net
