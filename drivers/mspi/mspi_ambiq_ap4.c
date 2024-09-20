@@ -845,6 +845,12 @@ static int mspi_ambiq_xip_config(const struct device *controller,
 		eRequest = AM_HAL_MSPI_REQ_XIP_DIS;
 	}
 
+	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_XIP_CONFIG, &data->hal_xip_cfg);
+	if (ret) {
+		LOG_INST_ERR(cfg->log, "%u, fail to configure XIP REQ config, code:%d.", __LINE__, ret);
+		return -EHOSTDOWN;
+	}
+
 	ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_XIP_MISC_CONFIG, &data->hal_xip_misc_cfg);
 	if (ret) {
 		LOG_INST_ERR(cfg->log, "%u, fail to configure XIP MISC config, code:%d.", __LINE__, ret);
