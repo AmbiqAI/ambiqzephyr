@@ -124,6 +124,7 @@ static int flash_mspi_atxp032_command_write(const struct device *flash, uint8_t 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_PIO;
 	data->trans.tx_dummy          = tx_dummy;
+	data->trans.rx_dummy          = data->dev_cfg.rx_dummy;
 	data->trans.cmd_length        = 1;
 	data->trans.addr_length       = addr_len;
 	data->trans.hold_ce           = false;
@@ -155,6 +156,7 @@ static int flash_mspi_atxp032_command_read(const struct device *flash, uint8_t c
 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_PIO;
+	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
 	data->trans.rx_dummy          = rx_dummy;
 	data->trans.cmd_length        = 1;
 	data->trans.addr_length       = addr_len;
@@ -324,10 +326,11 @@ static int flash_mspi_atxp032_page_program(const struct device *flash, off_t off
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_DMA;
 	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
+	data->trans.rx_dummy          = data->dev_cfg.rx_dummy;
 	data->trans.cmd_length        = data->dev_cfg.cmd_length;
 	data->trans.addr_length       = data->dev_cfg.addr_length;
 	data->trans.hold_ce           = false;
-	data->trans.priority          = 1;
+	data->trans.priority          = MSPI_XFER_PRIORITY_MEDIUM;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
 	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
@@ -405,11 +408,12 @@ static int flash_mspi_atxp032_read(const struct device *flash, off_t offset, voi
 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_DMA;
+	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
 	data->trans.rx_dummy          = data->dev_cfg.rx_dummy;
 	data->trans.cmd_length        = data->dev_cfg.cmd_length;
 	data->trans.addr_length       = data->dev_cfg.addr_length;
 	data->trans.hold_ce           = false;
-	data->trans.priority          = 1;
+	data->trans.priority          = MSPI_XFER_PRIORITY_MEDIUM;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
 	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
@@ -718,11 +722,12 @@ static int flash_mspi_atxp032_read_sfdp(const struct device *flash, off_t addr, 
 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_DMA;
+	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
 	data->trans.rx_dummy          = 8;
 	data->trans.cmd_length        = 1;
 	data->trans.addr_length       = 3;
 	data->trans.hold_ce           = false;
-	data->trans.priority          = 1;
+	data->trans.priority          = MSPI_XFER_PRIORITY_MEDIUM;
 	data->trans.packets           = &data->packet;
 	data->trans.num_packet        = 1;
 	data->trans.timeout           = CONFIG_MSPI_COMPLETION_TIMEOUT_TOLERANCE;
@@ -743,7 +748,7 @@ static int flash_mspi_atxp032_read_jedec_id(const struct device *flash, uint8_t 
 {
 	struct flash_mspi_atxp032_data *data = flash->data;
 
-	id = &data->jedec_id;
+	id = (uint8_t *)&data->jedec_id;
 	return 0;
 }
 #endif /* CONFIG_FLASH_JESD216_API */

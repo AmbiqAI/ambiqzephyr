@@ -845,10 +845,23 @@ static int mspi_ambiq_get_channel_status(const struct device *controller, uint8_
 
 	const struct mspi_ambiq_config *cfg = controller->config;
 	struct mspi_ambiq_data *data = controller->data;
+	am_hal_mspi_status_t dma_stat;
 	int ret = 0;
 
 	if (sys_read32(cfg->reg_base) & MSPI_BUSY) {
 		ret = -EBUSY;
+	}
+
+	if (am_hal_mspi_status_get(data->mspiHandle, &dma_stat))
+	{
+		LOG_INST_ERR(cfg->log, "%u, fail to get mspi status.", __LINE__);
+		return -EHOSTDOWN;
+	}
+
+	if (dma_stat.ui32NumCQEntries != 0 ||
+	    dma_stat.bTIP)
+	{
+		return -EBUSY;
 	}
 
 	if (mspi_is_inp(controller)) {
@@ -864,20 +877,20 @@ static int mspi_ambiq_get_channel_status(const struct device *controller, uint8_
 static void mspi_ambiq_isr(const struct device *dev)
 {
 	struct mspi_ambiq_data *data = dev->data;
-	uint32_t ui32Status;
+	uint32_t status;
 
-	am_hal_mspi_interrupt_status_get(data->mspiHandle, &ui32Status, false);
-	am_hal_mspi_interrupt_clear(data->mspiHandle, ui32Status);
-	am_hal_mspi_interrupt_service(data->mspiHandle, ui32Status);
+	am_hal_mspi_interrupt_status_get(data->mspiHandle, &status, false);
+	am_hal_mspi_interrupt_clear(data->mspiHandle, status);
+	am_hal_mspi_interrupt_service(data->mspiHandle, status);
 }
 
-/** Manage sync dma transceive */
+/** Manage dma transceive */
 static void hal_mspi_callback(void *pCallbackCtxt, uint32_t status)
 {
 	const struct device *controller = pCallbackCtxt;
 	struct mspi_ambiq_data *data = controller->data;
 	struct mspi_context *ctx = &data->ctx;
-	volatile struct mspi_event *evt = &ctx->callback_ctx->mspi_evt;
+	struct mspi_event *evt = &ctx->callback_ctx->mspi_evt;
 
 	if (ctx->xfer.async && ctx->callback)
 	{

@@ -82,6 +82,7 @@ static int memc_mspi_aps6404l_command_write(const struct device *psram, uint8_t 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_PIO;
 	data->trans.tx_dummy          = 0;
+	data->trans.rx_dummy          = data->dev_cfg.rx_dummy;
 	data->trans.cmd_length        = 1;
 	data->trans.addr_length       = 0;
 	data->trans.hold_ce           = false;
@@ -118,6 +119,7 @@ static int memc_mspi_aps6404l_command_read(const struct device *psram, uint8_t c
 
 	data->trans.async             = false;
 	data->trans.xfer_mode         = MSPI_PIO;
+	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
 	data->trans.rx_dummy          = 0;
 	data->trans.cmd_length        = 1;
 	data->trans.addr_length       = 3;
