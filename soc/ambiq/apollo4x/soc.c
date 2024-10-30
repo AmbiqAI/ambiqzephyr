@@ -20,7 +20,12 @@ void soc_early_init_hook(void)
 
 	/* Disable the RTC. */
 	am_hal_rtc_osc_disable();
+
 #ifdef CONFIG_PM
 	ambiq_power_init();
 #endif
+
+#ifdef CONFIG_LOG_BACKEND_SWO
+	am_hal_tpiu_enable(CONFIG_LOG_BACKEND_SWO_FREQ_HZ);
+#endif /* CONFIG_LOG_BACKEND_SWO */
 }
