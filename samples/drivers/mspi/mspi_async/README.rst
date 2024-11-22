@@ -32,5 +32,6 @@ Sample Output
 .. code-block:: console
 
    *** Booting Zephyr OS build zephyr-v3.5.0-8581-gc80b243c7598 ***
-   w:3,r:3
+   Waiting for complete..., write completed:3, read completed:2
+   write completed:3, read completed:3
    Read data matches written data
