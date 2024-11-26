@@ -27,6 +27,11 @@
 
 #define MSPI_CQ_MAX_ENTRY MSPI0_CQCURIDX_CQCURIDX_Msk
 
+#define MSPI_BUS_XFER_AUTOPOLL MSPI_BUS_EVENT_MAX
+#define MSPI_BUS_EVENT_MAX_NEW (MSPI_BUS_EVENT_MAX + 1)
+
+#define MSPI_BUS_XFER_AUTOPOLL_CB (MSPI_BUS_XFER_COMPLETE_CB << 1)
+
 #define TIMING_CFG_GET_RX_DUMMY(cfg)                                                              \
 	{                                                                                         \
 		mspi_timing_cfg *timing = (mspi_timing_cfg *)cfg;                                 \
@@ -78,5 +83,25 @@ enum mspi_ambiq_timing_param {
 	MSPI_AMBIQ_SET_RXDQSDLY       = BIT(6),
 	MSPI_AMBIQ_SET_RXDQSDLYEXT    = BIT(7),
 };
+
+struct mspi_ambiq_autopoll_cfg {
+	uint32_t magic;           /* magic word 0xDEADBEEF */
+	uint32_t offset;          /* offset in bytes */
+	uint32_t size;            /* the number of bytes to match */
+	uint8_t *match;           /* match value */
+	uint8_t *mask;            /* value mask */
+	uint32_t num_polls;       /* maximum number of polls */
+};
+
+#define MSPI_AMBIQ_AUTOPOLL_INIT(obj)                                                            \
+	IF_ENABLED(CONFIG_FLASH_MSPI_AMBIQ_AUTOPOLL,                                             \
+		  (                                                                              \
+			.autopoll = {                                                            \
+				.sig_ap = K_POLL_SIGNAL_INITIALIZER(obj.autopoll.sig_ap),        \
+				.evt_ap = K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL,           \
+								   K_POLL_MODE_NOTIFY_ONLY,      \
+								   &(obj).autopoll.sig_ap),      \
+			},                                                                       \
+		  ))
 
 #endif

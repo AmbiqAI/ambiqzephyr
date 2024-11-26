@@ -29,3 +29,10 @@ config FLASH_MSPI_ATXP032
 	select MSPI_AMBIQ_AP3 if SOC_SERIES_APOLLO3X
 
 endmenu
+
+config FLASH_MSPI_AMBIQ_AUTOPOLL
+	bool "MSPI ambiq autopoll feature"
+	default y
+	depends on FLASH_MSPI
+	depends on MSPI_AMBIQ_AP3
+	select POLL

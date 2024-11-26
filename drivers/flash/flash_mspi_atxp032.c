@@ -43,6 +43,17 @@ enum atxp032_dummy_clock {
 	ATXP032_DC_20,
 	ATXP032_DC_22,
 };
+
+#if CONFIG_FLASH_MSPI_AMBIQ_AUTOPOLL
+struct flash_mspi_atxp032_autopoll {
+	struct mspi_ambiq_autopoll_cfg      cfg;
+	uint8_t                             match_ap;
+	uint8_t                             mask_ap;
+	struct mspi_callback_context        ctx_ap;
+	struct k_poll_signal                sig_ap;
+	struct k_poll_event                 evt_ap;
+};
+#endif
 struct flash_mspi_atxp032_config {
 	uint32_t                            port;
 	uint32_t                            mem_size;
@@ -69,6 +80,10 @@ struct flash_mspi_atxp032_data {
 	mspi_timing_cfg                     timing_cfg;
 	struct mspi_xfer                    trans;
 	struct mspi_xfer_packet             packet;
+
+#if CONFIG_FLASH_MSPI_AMBIQ_AUTOPOLL
+	struct flash_mspi_atxp032_autopoll  autopoll;
+#endif
 
 	struct k_sem                        lock;
 	uint32_t                            jedec_id;
@@ -347,6 +362,108 @@ static int flash_mspi_atxp032_page_program(const struct device *flash, off_t off
 	return ret;
 }
 
+#if CONFIG_FLASH_MSPI_AMBIQ_AUTOPOLL
+void autopoll_cb(struct mspi_callback_context *mspi_cb_ctx, uint32_t status)
+{
+	/* dereferencing the pointer as flash_mspi_atxp032_autopoll instead */
+	struct flash_mspi_atxp032_autopoll *autopoll = mspi_cb_ctx->ctx;
+	struct mspi_event *evt = &mspi_cb_ctx->mspi_evt;
+
+	if (evt->evt_type == MSPI_BUS_XFER_AUTOPOLL) {
+		k_poll_signal_raise(&autopoll->sig_ap, evt->evt_data.status);
+	}
+}
+
+static int flash_mspi_atxp032_busy_wait(const struct device *flash)
+{
+	const struct flash_mspi_atxp032_config *cfg = flash->config;
+	struct flash_mspi_atxp032_data *data = flash->data;
+	mspi_timing_cfg bkp = data->timing_cfg;
+
+	uint32_t status = 0;
+	uint32_t rx_dummy;
+	int ret;
+
+	if (data->dev_cfg.io_mode == MSPI_IO_MODE_SINGLE) {
+		rx_dummy = 0;
+	} else {
+		rx_dummy = 4;
+		TIMING_CFG_SET_RX_DUMMY(&data->timing_cfg, 4);
+		if (mspi_timing_config(cfg->bus, &cfg->dev_id, cfg->timing_cfg_mask,
+				       (void *)&data->timing_cfg)) {
+			LOG_ERR("Failed to config mspi controller/%u", __LINE__);
+			return -EIO;
+		}
+	}
+
+	data->packet.dir              = MSPI_RX;
+	data->packet.cmd              = SPI_NOR_CMD_RDSR;
+	data->packet.address          = 0;
+	data->packet.data_buf         = (uint8_t *)&status;
+	data->packet.num_bytes        = sizeof(uint32_t);
+	data->packet.cb_mask          = MSPI_BUS_XFER_AUTOPOLL_CB;
+
+	data->trans.async             = true;
+	data->trans.xfer_mode         = MSPI_PIO;
+	data->trans.tx_dummy          = data->dev_cfg.tx_dummy;
+	data->trans.rx_dummy          = rx_dummy;
+	data->trans.cmd_length        = 1;
+	data->trans.addr_length       = 0;
+	data->trans.hold_ce           = false;
+	data->trans.priority          = MSPI_XFER_PRIORITY_MEDIUM;
+	data->trans.packets           = &data->packet;
+	data->trans.num_packet        = 1;
+	data->trans.timeout           = 10;
+
+	k_poll_signal_reset(&data->autopoll.sig_ap);
+	data->autopoll.cfg.magic      = 0xDEADBEEF;
+	data->autopoll.cfg.offset     = 0;
+	data->autopoll.cfg.size       = 1;
+	data->autopoll.cfg.match      = &data->autopoll.match_ap;
+	data->autopoll.cfg.mask       = &data->autopoll.mask_ap;
+	data->autopoll.cfg.num_polls  = 50000;
+	data->autopoll.match_ap       = 0;
+	data->autopoll.mask_ap        = SPI_NOR_WIP_BIT;
+	data->autopoll.ctx_ap.ctx     = &data->autopoll.cfg;
+
+	ret = mspi_register_callback(cfg->bus, &cfg->dev_id, MSPI_BUS_XFER_AUTOPOLL,
+				     (mspi_callback_handler_t)autopoll_cb,
+				     &data->autopoll.ctx_ap);
+	if (ret) {
+		LOG_ERR("MSPI register callback failed with code: %d/%u", ret, __LINE__);
+		return -EIO;
+	}
+
+	ret = mspi_transceive(cfg->bus, &cfg->dev_id, (const struct mspi_xfer *)&data->trans);
+	if (ret) {
+		LOG_ERR("MSPI read transaction failed with code: %d/%u", ret, __LINE__);
+		return -EIO;
+	}
+
+	k_poll(&data->autopoll.evt_ap, 1,  K_SECONDS(4));
+
+	unsigned int signaled;
+	int signal_result;
+	k_poll_signal_check(&data->autopoll.sig_ap, &signaled, &signal_result);
+	if (!signaled || signal_result) {
+		LOG_ERR("MSPI auto poll failed, signaled=%d, code=%d/%u",
+			signaled, signal_result, __LINE__);
+		ret = -EIO;
+	}
+
+	if (data->dev_cfg.io_mode != MSPI_IO_MODE_SINGLE) {
+		data->timing_cfg = bkp;
+		if (mspi_timing_config(cfg->bus, &cfg->dev_id, cfg->timing_cfg_mask,
+				       (void *)&data->timing_cfg)) {
+			LOG_ERR("Failed to config mspi controller/%u", __LINE__);
+			return -EIO;
+		}
+	}
+
+	return ret;
+}
+#else
+
 static int flash_mspi_atxp032_busy_wait(const struct device *flash)
 {
 	const struct flash_mspi_atxp032_config *cfg = flash->config;
@@ -391,6 +508,8 @@ static int flash_mspi_atxp032_busy_wait(const struct device *flash)
 
 	return ret;
 }
+
+#endif /* CONFIG_FLASH_MSPI_AMBIQ_AUTOPOLL */
 
 static int flash_mspi_atxp032_read(const struct device *flash, off_t offset, void *rdata,
 				   size_t len)
@@ -855,6 +974,7 @@ static const struct flash_driver_api flash_mspi_atxp032_api = {
 	};                                                                                        \
 	static struct flash_mspi_atxp032_data flash_mspi_atxp032_data_##n = {                     \
 		.lock = Z_SEM_INITIALIZER(flash_mspi_atxp032_data_##n.lock, 0, 1),                \
+		MSPI_AMBIQ_AUTOPOLL_INIT(flash_mspi_atxp032_data_##n)                             \
 	};                                                                                        \
 	PM_DEVICE_DT_INST_DEFINE(n, flash_mspi_atxp032_pm_action);                                \
 	DEVICE_DT_INST_DEFINE(n,                                                                  \

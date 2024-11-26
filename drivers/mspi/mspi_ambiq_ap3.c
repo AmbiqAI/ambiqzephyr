@@ -70,8 +70,8 @@ struct mspi_ambiq_data {
 	struct mspi_xip_cfg             xip_cfg;
 	struct mspi_scramble_cfg        scramble_cfg;
 
-	mspi_callback_handler_t         cbs[MSPI_BUS_EVENT_MAX];
-	struct mspi_callback_context    *cb_ctxs[MSPI_BUS_EVENT_MAX];
+	mspi_callback_handler_t         cbs[MSPI_BUS_EVENT_MAX_NEW];
+	struct mspi_callback_context    *cb_ctxs[MSPI_BUS_EVENT_MAX_NEW];
 
 	struct mspi_context             ctx;
 };
@@ -967,6 +967,48 @@ static void mspi_ambiq_isr(const struct device *dev)
 	am_hal_mspi_interrupt_service(data->mspiHandle, status);
 }
 
+static void mspi_autopoll_callback(void *pCallbackCtxt, uint32_t status)
+{
+	const struct device *controller = pCallbackCtxt;
+	struct mspi_ambiq_data *data = controller->data;
+	struct mspi_context *ctx = &data->ctx;
+	struct mspi_event *evt = &ctx->callback_ctx->mspi_evt;
+	struct mspi_ambiq_autopoll_cfg *autopoll = ctx->callback_ctx->ctx;
+	am_hal_mspi_seq_device_cfg_t  seq_dev_cfg;
+	uint8_t *buff;
+	bool matched;
+
+	ctx->packets_done++;
+
+	evt->evt_data.controller = controller;
+	evt->evt_data.dev_id     = ctx->owner;
+	evt->evt_data.status     = status;
+
+	buff = evt->evt_data.packet->data_buf;
+	matched = true;
+	for (int i = 0; i < autopoll->size; i++) {
+		if ((buff[autopoll->offset + i] & autopoll->mask[i]) != autopoll->match[i]) {
+			matched = false;
+			break;
+		}
+	}
+	if (matched) {
+		seq_dev_cfg.eSeqMode = AM_HAL_MSPI_SEQ_ABORT_MODE;
+		evt->evt_data.status = am_hal_mspi_control(data->mspiHandle,
+							   AM_HAL_MSPI_REQ_SET_SEQMODE,
+							   &seq_dev_cfg);
+		ctx->callback(ctx->callback_ctx);
+	} else if (ctx->packets_done > autopoll->num_polls) {
+		seq_dev_cfg.eSeqMode = AM_HAL_MSPI_SEQ_ABORT_MODE;
+		evt->evt_data.status = am_hal_mspi_control(data->mspiHandle,
+							   AM_HAL_MSPI_REQ_SET_SEQMODE,
+							   &seq_dev_cfg);
+		evt->evt_data.status |= 0xDEAD0000;
+		ctx->callback(ctx->callback_ctx);
+	}
+
+}
+
 /** Manage sync dma transceive */
 static void hal_mspi_callback(void *callback_ctx, uint32_t status)
 {
@@ -989,7 +1031,8 @@ void am_hal_mspi_zephyr_callback(void *user_cb, void *user_cb_ctx, uint32_t stat
 	if (user_cb == 0) {
 		return;
 	}
-	if (user_cb != hal_mspi_callback) {
+	if (user_cb != hal_mspi_callback &&
+	    user_cb != mspi_autopoll_callback) {
 		mspi_callback_handler_t cb           = user_cb;
 		struct mspi_callback_context *cb_ctx = user_cb_ctx;
 		struct mspi_event *evt               = &cb_ctx->mspi_evt;
@@ -1005,6 +1048,59 @@ void am_hal_mspi_zephyr_callback(void *user_cb, void *user_cb_ctx, uint32_t stat
 		am_hal_mspi_callback_t cb = user_cb;
 
 		cb(user_cb_ctx, status);
+	}
+}
+
+static int mspi_check_autopoll(const struct device *controller,
+			       const struct mspi_xfer *xfer,
+			       mspi_callback_handler_t cb,
+			       struct mspi_callback_context *cb_ctx)
+{
+	const struct mspi_ambiq_config *cfg = controller->config;
+	struct mspi_ambiq_autopoll_cfg *autopoll;
+
+	if (xfer->num_packet > MSPI_CQ_MAX_ENTRY) {
+		LOG_INST_ERR(cfg->log, "%u, Number of packets exceed %ld",
+			     __LINE__, MSPI_CQ_MAX_ENTRY);
+		return -ENOTSUP;
+	}
+
+	if (cb == NULL ||
+	    cb_ctx == NULL ||
+	    cb_ctx->ctx == NULL) {
+		LOG_INST_ERR(cfg->log, "%u, parameter error",
+			     __LINE__);
+		return -EIO;
+	}
+
+	autopoll = (struct mspi_ambiq_autopoll_cfg *)cb_ctx->ctx;
+	if (autopoll->magic != 0xDEADBEEF)
+	{
+		LOG_INST_ERR(cfg->log, "%u, parameter error",
+			     __LINE__);
+		return -EIO;
+	}
+	/* allows only one transfer that does the polling get the callback */
+	bool check_ok = false;
+	for (int i = 0; i < xfer->num_packet; ++i)
+	{
+		if (xfer->packets[i].cb_mask == MSPI_BUS_XFER_AUTOPOLL_CB &&
+		    xfer->packets[i].dir == MSPI_RX) {
+			if (check_ok) {
+				check_ok = false;
+				break;
+			} else {
+				check_ok = true;
+			}
+		}
+	}
+	if (check_ok) {
+		return 0;
+	}
+	else {
+		LOG_INST_ERR(cfg->log, "%u, parameter error",
+			     __LINE__);
+		return -EIO;
 	}
 }
 
@@ -1078,7 +1174,6 @@ static int mspi_pio_transceive(const struct device *controller,
 	struct mspi_context *ctx = &data->ctx;
 	const struct mspi_xfer_packet *packet;
 	uint32_t packet_idx;
-	am_hal_mspi_pio_transfer_t trans;
 	int ret = 0;
 
 	if (xfer->num_packet == 0 ||
@@ -1088,32 +1183,101 @@ static int mspi_pio_transceive(const struct device *controller,
 	}
 
 	if (xfer->async) {
-		LOG_INST_ERR(cfg->log, "%u, async PIO not supported.", __LINE__);
-		return -ENOTSUP;
+		ret = mspi_check_autopoll(controller, xfer, cb, cb_ctx);
+		if (ret) {
+			return ret;
+		}
 	}
 
 	mspi_context_lock(ctx, data->dev_id, xfer, cb, cb_ctx, true);
 
-	ret = mspi_pio_prepare(controller, &trans);
-	if (ret) {
-		goto pio_err;
-	}
-
-	while (ctx->packets_left > 0) {
-		packet_idx               = ctx->xfer.num_packet - ctx->packets_left;
-		packet                   = &ctx->xfer.packets[packet_idx];
-		trans.eDirection         = packet->dir;
-		trans.ui16DeviceInstr    = (uint16_t)packet->cmd;
-		trans.ui32DeviceAddr     = packet->address;
-		trans.ui32NumBytes       = packet->num_bytes;
-		trans.pui32Buffer        = (uint32_t *)packet->data_buf;
-
-		ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &trans,
-							MSPI_TIMEOUT_US);
-		ctx->packets_left--;
+	if (!ctx->xfer.async) {
+		am_hal_mspi_pio_transfer_t trans;
+		ret = mspi_pio_prepare(controller, &trans);
 		if (ret) {
-			ret = -EIO;
 			goto pio_err;
+		}
+
+		while (ctx->packets_left > 0) {
+			packet_idx               = ctx->xfer.num_packet - ctx->packets_left;
+			packet                   = &ctx->xfer.packets[packet_idx];
+			trans.eDirection         = packet->dir;
+			trans.ui16DeviceInstr    = (uint16_t)packet->cmd;
+			trans.ui32DeviceAddr     = packet->address;
+			trans.ui32NumBytes       = packet->num_bytes;
+			trans.pui32Buffer        = (uint32_t *)packet->data_buf;
+
+			ret = am_hal_mspi_blocking_transfer(data->mspiHandle, &trans,
+							    MSPI_TIMEOUT_US);
+			ctx->packets_left--;
+			if (ret) {
+				ret = -EIO;
+				goto pio_err;
+			}
+		}
+	} else {
+		am_hal_mspi_seq_device_cfg_t  seq_dev_cfg;
+
+		ret = mspi_xfer_config_update(controller, xfer);
+		if (ret) {
+			goto pio_err;
+		}
+
+		seq_dev_cfg.ui8InstrLen         = ctx->xfer.cmd_length;
+		seq_dev_cfg.ui8AddrLen          = ctx->xfer.addr_length;
+		seq_dev_cfg.ui8Turnaround       = ctx->xfer.rx_dummy;
+		seq_dev_cfg.ui8WriteLatency     = ctx->xfer.tx_dummy;
+		seq_dev_cfg.ui16TotalPackets    = ctx->xfer.num_packet;
+		seq_dev_cfg.eSeqMode            = AM_HAL_MSPI_SEQ_LOOP_MODE;
+
+		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_SET_SEQMODE, &seq_dev_cfg);
+		if (ret)
+		{
+			LOG_INST_ERR(cfg->log, "%u, failed to set sequence mode.", __LINE__);
+			ret = -EHOSTDOWN;
+			goto pio_err;
+		}
+
+		while (ctx->packets_left > 0) {
+			am_hal_mspi_cq_scatter_xfer_t trans;
+
+			packet_idx                 = ctx->xfer.num_packet - ctx->packets_left;
+			packet                     = &ctx->xfer.packets[packet_idx];
+			trans.eDirection           = packet->dir;
+			trans.ui16DeviceInstr      = packet->cmd;
+			trans.ui32DeviceAddress    = packet->address;
+			trans.ui32SRAMAddress      = (uint32_t)packet->data_buf;
+			trans.ui32TransferCount    = packet->num_bytes;
+			trans.ui8Priority          = ctx->xfer.priority;
+			trans.ui16PacketIndex      = packet_idx;
+
+			if (packet->cb_mask == MSPI_BUS_XFER_AUTOPOLL_CB) {
+				ctx->callback_ctx->mspi_evt.evt_data.packet = packet;
+				ctx->callback_ctx->mspi_evt.evt_data.packet_idx = packet_idx;
+				ctx->callback_ctx->mspi_evt.evt_type = MSPI_BUS_XFER_AUTOPOLL;
+				ret = am_hal_mspi_cq_scatter_xfer(data->mspiHandle, &trans,
+								  mspi_autopoll_callback, (void *)controller);
+			} else {
+				ret = am_hal_mspi_cq_scatter_xfer(data->mspiHandle, &trans,
+								  NULL, NULL);
+			}
+
+			if (ret) {
+				if (ret == AM_HAL_STATUS_OUT_OF_RANGE) {
+					LOG_INST_ERR(cfg->log, "%u, failed to transfer, cq out of memory.",
+						     __LINE__);
+					ret = -ENOMEM;
+				} else {
+					LOG_INST_ERR(cfg->log, "%u, failed to transfer, error %d",
+						     __LINE__, ret);
+					ret = -EIO;
+					am_hal_mspi_disable(data->mspiHandle);
+					am_hal_mspi_enable(data->mspiHandle);
+				}
+				goto pio_err;
+			}
+
+			ctx->packets_left--;
 		}
 	}
 
@@ -1271,8 +1435,14 @@ static int mspi_ambiq_transceive(const struct device *controller,
 	}
 
 	if (xfer->async) {
-		cb = data->cbs[MSPI_BUS_XFER_COMPLETE];
-		cb_ctx = data->cb_ctxs[MSPI_BUS_XFER_COMPLETE];
+		if (xfer->xfer_mode == MSPI_PIO) {
+			cb = data->cbs[MSPI_BUS_XFER_AUTOPOLL];
+			cb_ctx = data->cb_ctxs[MSPI_BUS_XFER_AUTOPOLL];
+		} else {
+			cb = data->cbs[MSPI_BUS_XFER_COMPLETE];
+			cb_ctx = data->cb_ctxs[MSPI_BUS_XFER_COMPLETE];
+		}
+
 	}
 
 	if (xfer->xfer_mode == MSPI_PIO) {
@@ -1304,7 +1474,8 @@ static int mspi_ambiq_register_callback(const struct device *controller,
 		return -ESTALE;
 	}
 
-	if (evt_type != MSPI_BUS_XFER_COMPLETE) {
+	if (evt_type != MSPI_BUS_XFER_COMPLETE &&
+	    evt_type != MSPI_BUS_XFER_AUTOPOLL) {
 		LOG_INST_ERR(cfg->log, "%u, callback types not supported.", __LINE__);
 		return -ENOTSUP;
 	}
