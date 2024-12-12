@@ -669,6 +669,22 @@ static int mspi_ambiq_dev_config(const struct device *controller, const struct m
 			hal_dev_cfg.eAddrCfg = dev_cfg->addr_length - 1;
 			data->dev_cfg.addr_length = dev_cfg->addr_length;
 		}
+
+		if ((param_mask & MSPI_DEVICE_CONFIG_CMD_LEN) |
+		    (param_mask & MSPI_DEVICE_CONFIG_ADDR_LEN)) {
+			am_hal_mspi_instr_addr_t pConfig;
+
+			pConfig.eAddrCfg = hal_dev_cfg.eAddrCfg;
+			pConfig.eInstrCfg = hal_dev_cfg.eInstrCfg;
+
+			ret = am_hal_mspi_control(data->mspiHandle,
+						  AM_HAL_MSPI_REQ_SET_INSTR_ADDR_LEN, &pConfig);
+			if (ret) {
+				LOG_INST_ERR(cfg->log, "%u, failed to configure device.", __LINE__);
+				ret = -EHOSTDOWN;
+				goto e_return;
+			}
+		}
 	} else {
 		am_hal_mspi_dqs_t *dqsCfg = &data->hal_dqs_cfg;
 
@@ -1046,6 +1062,20 @@ static int mspi_pio_prepare(const struct device *controller, am_hal_mspi_pio_tra
 	}
 
 	data->dev_cfg.addr_length = xfer->addr_length;
+
+	if ((xfer->cmd_length != 0) || (xfer->addr_length != 0)) {
+		am_hal_mspi_instr_addr_t pConfig;
+
+		pConfig.eAddrCfg = data->hal_dev_cfg.eAddrCfg;
+		pConfig.eInstrCfg = data->hal_dev_cfg.eInstrCfg;
+
+		ret = am_hal_mspi_control(data->mspiHandle, AM_HAL_MSPI_REQ_SET_INSTR_ADDR_LEN,
+					  &pConfig);
+		if (ret) {
+			LOG_INST_ERR(cfg->log, "%u, failed to configure device.", __LINE__);
+			ret = -EHOSTDOWN;
+		}
+	}
 
 	return ret;
 }
