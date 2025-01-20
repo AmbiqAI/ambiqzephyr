@@ -186,6 +186,13 @@ static void blink_stop(void)
 #endif /* LED0_NODE */
 #endif /* CONFIG_GPIO */
 
+static void read_local_ver_complete(struct net_buf *buf)
+{
+	struct bt_hci_rp_read_local_version_info *rp = (void *)buf->data;
+
+	printk("status 0x%02x, hci_ver 0x%02x\n", rp->status, rp->hci_version);
+}
+
 int main(void)
 {
 	int err;
@@ -262,10 +269,23 @@ int main(void)
 	blink_start();
 #endif /* HAS_LED */
 
+	struct net_buf *rsp;
+
 	/* Implement notification. */
 	while (1) {
 		k_sleep(K_SECONDS(1));
 
+		/* Read Local Version Information */
+		err = bt_hci_cmd_send_sync(BT_HCI_OP_READ_LOCAL_VERSION_INFO, NULL,
+					&rsp);
+		if (err) {
+			printk("bt send failed %d\n", err);
+			return err;
+		}
+		read_local_ver_complete(rsp);
+		net_buf_unref(rsp);
+
+#if 0
 		/* Heartrate measurements simulation */
 		hrs_notify();
 
@@ -301,6 +321,7 @@ int main(void)
 			blink_start();
 #endif /* HAS_LED */
 		}
+#endif
 	}
 
 	return 0;
